@@ -430,6 +430,7 @@ void try_send_register( n2n_edge_t * eee,
 
 
 /** Update the last_seen time for this peer, or get registered. */
+/** 检查节点是否存在，如果存在，则更新通信时间，否则发送相互注册信号包 */
 void check_peer( n2n_edge_t * eee,
                  const struct n2n_packet_header * hdr )
 {
@@ -956,6 +957,7 @@ void readFromIPSocket( n2n_edge_t * eee )
   u_int8_t discarded_pkt;
   struct n2n_packet_header hdr_storage;
 
+  /*接收数据udp*/
   len = receive_data( &(eee->sinfo), packet, sizeof(packet), &sender,
                       &discarded_pkt, (char*)(eee->device.mac_addr), 
                       N2N_COMPRESSION_ENABLED, &hdr_storage);
@@ -1004,10 +1006,11 @@ void readFromIPSocket( n2n_edge_t * eee )
 	} else {
 	  if(hdr->msg_type == MSG_TYPE_PACKET) {
 	    /* assert: the packet received is destined for device.mac_addr or broadcast MAC. */
-
+        /* 数据包，先解密，再检查包是否合格，再检查对端节点是否存在，不存在则相互注册，再写入tab/tun结束*/
 	    len -= N2N_PKT_HDR_SIZE;
 
 	    /* Decrypt message first */
+        /* 解密*/
 	    len = TwoFishDecryptRaw((u_int8_t *)&packet[N2N_PKT_HDR_SIZE],
 				    (u_int8_t *)decrypted_msg, len, eee->dec_tf);
 
@@ -1019,6 +1022,7 @@ void readFromIPSocket( n2n_edge_t * eee )
 		    check_peer( eee, hdr );
 		  }
 
+        /*数据包写入tab/tun*/
 		data_sent_len = tuntap_write(&(eee->device), (u_char*)decrypted_msg, len);
 
 		if(data_sent_len != len)
@@ -1034,7 +1038,7 @@ void readFromIPSocket( n2n_edge_t * eee )
 	    }
 	    /* else silently ignore empty packet. */
 
-	  } else if(hdr->msg_type == MSG_TYPE_REGISTER) {
+	  } else if(hdr->msg_type == MSG_TYPE_REGISTER) { /*注册请求数据包，发送响应 */
 	    traceEvent(TRACE_INFO, "Received registration request from remote peer [ip=%s:%hu]",
 		       intoa(ntohl(hdr->public_ip.addr_type.v4_addr), ip_buf, sizeof(ip_buf)),
 		       ntohs(hdr->public_ip.port));
@@ -1044,7 +1048,7 @@ void readFromIPSocket( n2n_edge_t * eee )
 	      }
 
 
-	    send_register(eee, &hdr->public_ip, 1); /* Send ACK back */
+	    send_register(eee, &hdr->public_ip, 1); /* Send ACK back */ /*发送响应*/
 	  } else if(hdr->msg_type == MSG_TYPE_REGISTER_ACK) {
 	    traceEvent(TRACE_NORMAL, "Received REGISTER_ACK from remote peer [ip=%s:%hu]",
 		       intoa(ntohl(hdr->public_ip.addr_type.v4_addr), ip_buf, sizeof(ip_buf)),
@@ -1059,6 +1063,7 @@ void readFromIPSocket( n2n_edge_t * eee )
 	      else
                 {
 		  /* Move from pending_peers to known_peers; ignore if not in pending. */
+          /* 相互注册（点对点）响应包，说明可直连，移到optional队列 */
 		  set_peer_operational( eee, hdr );
                 }
 	    }
@@ -1383,6 +1388,7 @@ effectiveargv[effectiveargc] = 0;
   traceEvent(TRACE_NORMAL, "Ready");
 
 #ifdef WIN32
+  //TODO 读取tab数据并处理，改多线程
   startTunReadThread(&eee);
 #endif
 
@@ -1408,6 +1414,7 @@ effectiveargv[effectiveargc] = 0;
 
     wait_time.tv_sec = SOCKET_TIMEOUT_INTERVAL_SECS; wait_time.tv_usec = 0;
 
+    //查询socket
     rc = select(max_sock+1, &socket_mask, NULL, NULL, &wait_time);
     nowTime=time(NULL);
 
@@ -1419,6 +1426,7 @@ effectiveargv[effectiveargc] = 0;
 	  {
             /* Read a cooked socket from the internet socket. Writes on the TAP
              * socket. */
+            //TODO 读取socket数据并处理，改多线程
             readFromIPSocket(&eee);
 	  }
 
@@ -1427,13 +1435,17 @@ effectiveargv[effectiveargc] = 0;
 	  {
             /* Read an ethernet frame from the TAP socket. Write on the IP
              * socket. */
+            //TODO LINUX下读取Tun
             readFromTAPSocket(&eee);
 	  }
 #endif
       }
+    //TODO 注册相关，注意以下逻辑保持单线程（原子性）
 
+    //维护与supernode连接
     update_registrations(&eee);
 
+    //清理过期连接
     numPurged =  purge_expired_registrations2( &(eee.known_peers),&(eee.pending_peers) );
     /*numPurged += purge_expired_registrations( &(eee.pending_peers) );*/
     if ( numPurged > 0 )
@@ -1451,11 +1463,13 @@ effectiveargv[effectiveargc] = 0;
       }
   } /* while */
 
+  //退出，反注册
   send_deregister( &eee, &(eee.supernode));
-
+  //关闭socket
   closesocket(eee.sinfo.sock);
+  //关闭tun/tab
   tuntap_close(&(eee.device));
-
+  //卸载
   edge_deinit( &eee );
 
   return(0);
