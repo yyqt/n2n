@@ -86,3 +86,5 @@ void enqueue(multiThreadQueue_t queue, char* data, u_int8_t type);
 struct queueItem dequeue(multiThreadQueue_t queue);
 void sendproc(multiThreadQueue_t queue);
 void startConsumers(multiThreadQueue_t queue, int threadcount);
+int lockone(pthread_mutex_t* m);
+int release(pthread_mutex_t* m);

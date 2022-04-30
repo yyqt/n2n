@@ -68,9 +68,12 @@ multiThreadQueue_t createQueue() {
 	int size0 = sizeof(struct multiThreadQueue);
 	multiThreadQueue_t mutex = malloc(size0);
 	memset(mutex, 0, size0);
-	mutex->lock4Queue = PTHREAD_MUTEX_INITIALIZER;
+	pthread_mutex_init(&mutex->lock4Queue, NULL);
+	pthread_mutex_init(&mutex->lock4CheckPeer, NULL);
+	pthread_mutex_init(&mutex->lock4UpdatePeer, NULL);
+	/*mutex->lock4Queue = PTHREAD_MUTEX_INITIALIZER;
 	mutex->lock4CheckPeer = PTHREAD_MUTEX_INITIALIZER;
-	mutex->lock4UpdatePeer= PTHREAD_MUTEX_INITIALIZER;
+	mutex->lock4UpdatePeer= PTHREAD_MUTEX_INITIALIZER;*/
 	sem_init(&mutex->semiToConsume, 0, 0);
 	sem_init(&mutex->semiToProduce, 0, BUFFERLEN-1);
 	//printf("queue created");
@@ -152,4 +155,13 @@ void startConsumers(multiThreadQueue_t queue, int threadcount) {
 		pthread_t p1;
 		pthread_create(&p1, NULL, sendproc, queue);
 	}
+}
+
+
+int lockOne(pthread_mutex_t* m)
+{
+	return pthread_mutex_lock(m);
+}
+int releaseOne(pthread_mutex_t* m) {
+	return pthread_mutex_unlock(m);
 }

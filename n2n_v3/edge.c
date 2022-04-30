@@ -26,7 +26,6 @@
 #include "n2n.h"
 #include <assert.h>
 #include <sys/stat.h>
-#include <semaphore.h>
 #ifdef Windows
 //#include <semaphore.h>
 #else
@@ -380,11 +379,11 @@ void try_send_register(n2n_edge_t* eee,
 
     /* REVISIT: purge of pending_peers not yet done. */
     struct peer_info* scan = find_peer_by_mac(eee->pending_peers, hdr->src_mac);
-
+    multiThreadQueue_t queue = eee->mt_queue;
     if (NULL == scan)
     {
         traceEvent(TRACE_NORMAL, "try_send_register.lock.1.0：");
-        if (pthread_mutex_lock(&(eee->mt_queue->lock4UpdatePeer)) == 0) {
+        if (lockOne(&queue->lock4Queue) == 0) {
             traceEvent(TRACE_NORMAL, "try_send_register.lock.1.1：");
             scan = find_peer_by_mac(eee->pending_peers, hdr->src_mac);
             if (NULL == scan) {
@@ -410,7 +409,7 @@ void try_send_register(n2n_edge_t* eee,
                 /* pending_peers now owns scan. */
             }
             traceEvent(TRACE_NORMAL, "try_send_register.lock.1.3");
-            int  dd= pthread_mutex_unlock(&(eee->mt_queue->lock4UpdatePeer));
+            int  dd= releaseOne(&queue->lock4Queue);
             traceEvent(TRACE_NORMAL, "try_send_register.lock.1.4,rt=%d", dd);
         }
         else {
@@ -424,7 +423,7 @@ void try_send_register(n2n_edge_t* eee,
         if (0 == hdr->sent_by_supernode)
         {
             traceEvent(TRACE_NORMAL, "try_send_register.lock.2.0：");
-            if (pthread_mutex_lock(&(eee->mt_queue->lock4UpdatePeer)) == 0) {
+            if (lockOne(&(eee->mt_queue->lock4Queue)) == 0) {
                 traceEvent(TRACE_NORMAL, "try_send_register.lock.2.1：");
                 if (0 == hdr->sent_by_supernode)
                 {
@@ -440,14 +439,14 @@ void try_send_register(n2n_edge_t* eee,
                         &(scan->public_ip),
                         0 /* is not ACK */);
                 }
-                pthread_mutex_unlock(&(eee->mt_queue->lock4UpdatePeer));
+                releaseOne(&(eee->mt_queue->lock4Queue));
             }
             else {
                 traceEvent(TRACE_NORMAL, "try_send_register.lock.2.2：");
             }
         }
         else if (scan->regcount > 0 && scan->regcount < 3 && (time(NULL) - scan->last_seen) > scan->regcount) {
-            if (pthread_mutex_lock(&(eee->mt_queue->lock4UpdatePeer)) == 0) {
+            if (lockOne(&(eee->mt_queue->lock4Queue)) == 0) {
                 if (scan->regcount > 0 && scan->regcount < 3 && (time(NULL) - scan->last_seen) > scan->regcount) {
                     scan->regcount = scan->regcount + 1;
 
@@ -459,7 +458,7 @@ void try_send_register(n2n_edge_t* eee,
                         &(scan->public_ip),
                         0 /* is not ACK */);
                 }
-                pthread_mutex_unlock(&(eee->mt_queue->lock4UpdatePeer));
+                releaseOne(&(eee->mt_queue->lock4Queue));
             }
         }
     }
@@ -1148,13 +1147,15 @@ static void send_package2tapQ(recving_pkg pkg) {
             {
                 /* Move from pending_peers to known_peers; ignore if not in pending. */
                 /* 相互注册（点对点）响应包，说明可直连，移到optional队列 */
-                traceEvent(TRACE_INFO, "set_peer_operational_1.1：");
-                if (pthread_mutex_lock(&pkg->eee->mt_queue->lock4UpdatePeer) == 0) {
+                traceEvent(TRACE_INFO, "set_peer_operational_lock.1.1：");
+                if (lockOne(&pkg->eee->mt_queue->lock4UpdatePeer) == 0) {
                     set_peer_operational(eee, hdr);
-                    traceEvent(TRACE_INFO, "set_peer_operational_2：");
+                    traceEvent(TRACE_INFO, "set_peer_operational_lock.1.2：");
+                    releaseOne(&pkg->eee->mt_queue->lock4UpdatePeer);
+                    traceEvent(TRACE_INFO, "set_peer_operational_lock.1.3：");
                 }
                 else {
-                    traceEvent(TRACE_INFO, "set_peer_operational_3：");
+                    traceEvent(TRACE_INFO, "set_peer_operational_lock.1.4：");
                 }
             }
         }
