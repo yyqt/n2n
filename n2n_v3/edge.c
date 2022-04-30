@@ -1290,7 +1290,7 @@ int main(int argc, char* argv[]) {
   int     i, effectiveargc=0;
   char ** effectiveargv=NULL;
   char  * linebuffer = NULL;
-  int threadcount = 4; //默认线程数
+  int threadcount = 2; //默认线程数
   n2n_edge_t eee; /* single instance for this program */
 
   if (-1 == edge_init(&eee) ){
