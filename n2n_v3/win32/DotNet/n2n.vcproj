@@ -208,6 +208,10 @@
 				RelativePath="..\src\win32\wintap.c"
 				>
 			</File>
+			<File
+				RelativePath="..\src\sendqueue.c"
+				>
+			</File>
 		</Filter>
 		<Filter
 			Name="Header Files"
@@ -244,6 +248,10 @@
 			</File>
 			<File
 				RelativePath="..\src\win32\wintap.h"
+				>
+			</File>
+			<File
+				RelativePath="..\src\sendqueue.h"
 				>
 			</File>
 		</Filter>

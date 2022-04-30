@@ -1,0 +1,9 @@
+﻿################################################################################
+# 此 .gitignore 文件已由 Microsoft(R) Visual Studio 自动创建。
+################################################################################
+
+/n2n_v3/win32/DotNet/Debug
+/n2n_v3/win32/DotNet/Release
+/n2n_v3/win32/DotNet/.vs
+/n2n_v3/win32/DotNet/supernode/Debug
+/n2n_v3/win32/DotNet/supernode/Release
