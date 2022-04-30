@@ -1290,7 +1290,7 @@ int main(int argc, char* argv[]) {
   int     i, effectiveargc=0;
   char ** effectiveargv=NULL;
   char  * linebuffer = NULL;
-  int threadcount = 1; //默认线程数
+  int threadcount = 4; //默认线程数
   n2n_edge_t eee; /* single instance for this program */
 
   if (-1 == edge_init(&eee) ){
@@ -1350,7 +1350,7 @@ effectiveargv[effectiveargc] = 0;
   /* {int k;for(k=0;k<effectiveargc;++k)  printf("%s\n",effectiveargv[k]);} */
 
   optarg = NULL;
-  while((opt = getopt_long(effectiveargc, effectiveargv, "k:a:bc:u:g:m:M:s:d:l:p:fvhrt:x", long_options, NULL)) != EOF) {
+  while((opt = getopt_long(effectiveargc, effectiveargv, "k:a:bc:u:g:m:M:s:d:l:p:x:fvhrt", long_options, NULL)) != EOF) {
     switch (opt) {
     case 'a':
 		  printf("%s\n", optarg);
@@ -1396,7 +1396,9 @@ effectiveargv[effectiveargc] = 0;
       eee.allow_routing = 1;
       break;
     case 'x':
+        printf("x=%s", optarg);
         threadcount = atoi(optarg);
+        printf("x=%d", threadcount);
       break;
     case 'l': /* supernode-list */
       snprintf(eee.supernode_ip, sizeof(eee.supernode_ip), "%s", optarg);
