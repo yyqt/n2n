@@ -406,6 +406,7 @@ void try_send_register(n2n_edge_t* eee,
 
                 /* pending_peers now owns scan. */
             }
+            pthread_mutex_unlock(&eee->mt_queue->lock4UpdatePeer);
         }
     }
     else
@@ -429,6 +430,7 @@ void try_send_register(n2n_edge_t* eee,
                         &(scan->public_ip),
                         0 /* is not ACK */);
                 }
+                pthread_mutex_unlock(&eee->mt_queue->lock4UpdatePeer);
             }
         }
         else if (scan->regcount > 0 && scan->regcount < 3 && (time(NULL) - scan->last_seen) > scan->regcount) {
@@ -444,6 +446,7 @@ void try_send_register(n2n_edge_t* eee,
                         &(scan->public_ip),
                         0 /* is not ACK */);
                 }
+                pthread_mutex_unlock(&eee->mt_queue->lock4UpdatePeer);
             }
         }
     }
