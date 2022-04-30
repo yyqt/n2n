@@ -383,7 +383,9 @@ void try_send_register(n2n_edge_t* eee,
 
     if (NULL == scan)
     {
-        if (pthread_mutex_lock(&eee->mt_queue->lock4UpdatePeer) == 0) {
+        traceEvent(TRACE_NORMAL, "try_send_register.lock.1.0：");
+        if (pthread_mutex_lock(&(eee->mt_queue->lock4UpdatePeer)) == 0) {
+            traceEvent(TRACE_NORMAL, "try_send_register.lock.1.1：");
             scan = find_peer_by_mac(eee->pending_peers, hdr->src_mac);
             if (NULL == scan) {
                 scan = calloc(1, sizeof(struct peer_info));
@@ -407,7 +409,12 @@ void try_send_register(n2n_edge_t* eee,
 
                 /* pending_peers now owns scan. */
             }
-            pthread_mutex_unlock(&eee->mt_queue->lock4UpdatePeer);
+            traceEvent(TRACE_NORMAL, "try_send_register.lock.1.3");
+            int  dd= pthread_mutex_unlock(&(eee->mt_queue->lock4UpdatePeer));
+            traceEvent(TRACE_NORMAL, "try_send_register.lock.1.4,rt=%d", dd);
+        }
+        else {
+            traceEvent(TRACE_NORMAL, "try_send_register.lock.2.1");
         }
     }
     else
@@ -416,7 +423,9 @@ void try_send_register(n2n_edge_t* eee,
 
         if (0 == hdr->sent_by_supernode)
         {
-            if (pthread_mutex_lock(&eee->mt_queue->lock4UpdatePeer) == 0) {
+            traceEvent(TRACE_NORMAL, "try_send_register.lock.2.0：");
+            if (pthread_mutex_lock(&(eee->mt_queue->lock4UpdatePeer)) == 0) {
+                traceEvent(TRACE_NORMAL, "try_send_register.lock.2.1：");
                 if (0 == hdr->sent_by_supernode)
                 {
                     /* over-write supernode-based socket with direct socket. */
@@ -431,11 +440,14 @@ void try_send_register(n2n_edge_t* eee,
                         &(scan->public_ip),
                         0 /* is not ACK */);
                 }
-                pthread_mutex_unlock(&eee->mt_queue->lock4UpdatePeer);
+                pthread_mutex_unlock(&(eee->mt_queue->lock4UpdatePeer));
+            }
+            else {
+                traceEvent(TRACE_NORMAL, "try_send_register.lock.2.2：");
             }
         }
         else if (scan->regcount > 0 && scan->regcount < 3 && (time(NULL) - scan->last_seen) > scan->regcount) {
-            if (pthread_mutex_lock(&eee->mt_queue->lock4UpdatePeer) == 0) {
+            if (pthread_mutex_lock(&(eee->mt_queue->lock4UpdatePeer)) == 0) {
                 if (scan->regcount > 0 && scan->regcount < 3 && (time(NULL) - scan->last_seen) > scan->regcount) {
                     scan->regcount = scan->regcount + 1;
 
@@ -447,7 +459,7 @@ void try_send_register(n2n_edge_t* eee,
                         &(scan->public_ip),
                         0 /* is not ACK */);
                 }
-                pthread_mutex_unlock(&eee->mt_queue->lock4UpdatePeer);
+                pthread_mutex_unlock(&(eee->mt_queue->lock4UpdatePeer));
             }
         }
     }
@@ -988,6 +1000,7 @@ static void send_package2netQ(sending_pkg pkg) {
 void readFromIPSocket(n2n_edge_t* eee)
 {
     recving_pkg pkg = malloc(sizeof(struct recving_package_st));
+    memset(pkg, 0, sizeof(struct recving_package_st));
     ipstr_t ip_buf;
     macstr_t mac_buf;
     //  char packet[2048], decrypted_msg[2048];
@@ -1005,6 +1018,7 @@ void readFromIPSocket(n2n_edge_t* eee)
         N2N_COMPRESSION_ENABLED, &pkg->hdr);
     pkg->len = len;
     pkg->p = send_package2tapQ;
+    pkg->eee = eee;
     if (len <= 0) {
         free(pkg);
         return;
@@ -1134,8 +1148,13 @@ static void send_package2tapQ(recving_pkg pkg) {
             {
                 /* Move from pending_peers to known_peers; ignore if not in pending. */
                 /* 相互注册（点对点）响应包，说明可直连，移到optional队列 */
+                traceEvent(TRACE_INFO, "set_peer_operational_1.1：");
                 if (pthread_mutex_lock(&pkg->eee->mt_queue->lock4UpdatePeer) == 0) {
                     set_peer_operational(eee, hdr);
+                    traceEvent(TRACE_INFO, "set_peer_operational_2：");
+                }
+                else {
+                    traceEvent(TRACE_INFO, "set_peer_operational_3：");
                 }
             }
         }
