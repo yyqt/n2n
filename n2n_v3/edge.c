@@ -1539,6 +1539,9 @@ effectiveargv[effectiveargc] = 0;
                     peer_list_size( eee.pending_peers ), peer_list_size( eee.known_peers ) );
       }
   } /* while */
+  eee.mt_queue->state = 2;
+  for (int i = 0; i < 5 * threadcount; i++) //往队列里加几个空数据，以便线程正常退出
+      enqueue(eee.mt_queue, NULL, 1);
 
   //退出，反注册
   send_deregister( &eee, &(eee.supernode));

@@ -42,6 +42,8 @@ typedef struct multiThreadQueue
 	pthread_mutex_t lock4CheckPeer;
 	//更新终节点的锁
 	pthread_mutex_t lock4UpdatePeer;
+	//状态，为1正常，2退出
+	u_int8_t state;
 } *multiThreadQueue_t;
 
 
