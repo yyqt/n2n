@@ -38,8 +38,10 @@ typedef struct multiThreadQueue
 	sem_t semiToProduce;
 	//检查对端的锁
 	pthread_mutex_t lock4Queue;
-	//检查对端的锁
+	//发送的锁
 	pthread_mutex_t lock4send;
+	//接收的锁
+	pthread_mutex_t lock4recv;
 	//更新终节点的锁
 	pthread_mutex_t lock4UpdatePeer;
 	//状态，为1正常，2退出

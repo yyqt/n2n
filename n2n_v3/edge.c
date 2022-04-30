@@ -827,8 +827,8 @@ static void send_packet2net(n2n_edge_t* eee,
             }
         }
     }
-    //if (lockOne(&(eee->mt_queue->lock4UpdatePeer)) == 0) {
-        /* Encrypt "decrypted_msg" into the second half of the n2n packet. */
+
+    /* Encrypt "decrypted_msg" into the second half of the n2n packet. */
     static long increseed;
 
     int s = safeIncrement(&seedtwofishEn) % 16;
@@ -857,15 +857,15 @@ static void send_packet2net(n2n_edge_t* eee,
             macaddr_str((char*)eh->ether_shost, mac_buf, sizeof(mac_buf)),
             macaddr_str((char*)eh->ether_dhost, mac2_buf, sizeof(mac2_buf)));
 
-    //if (lockOne(&(eee->mt_queue->lock4send)) == 0) {
-    data_sent_len = reliable_sendto(&(eee->sinfo), packet, &len, &destination,
-        N2N_COMPRESSION_ENABLED);
+    if (lockOne(&(eee->mt_queue->lock4send)) == 0) {
+        data_sent_len = reliable_sendto(&(eee->sinfo), packet, &len, &destination,
+            N2N_COMPRESSION_ENABLED);
 
-    //  releaseOne(&(eee->mt_queue->lock4send));
-  //}
- // else {
-//      data_sent_len = 0;
-//  }
+        releaseOne(&(eee->mt_queue->lock4send));
+    }
+    else {
+        data_sent_len = 0;
+    }
 
     if (data_sent_len != len)
         traceEvent(TRACE_WARNING, "sendto() [sent=%d][attempted_to_send=%d] [%s]\n",
@@ -1125,10 +1125,10 @@ static void send_package2tapQ(recving_pkg pkg) {
 
                 /*数据包写入tab/tun*/
                 data_sent_len = 0;
-                // if (lockOne(&(eee->mt_queue->lock4send)) == 0) {
-                data_sent_len = tuntap_write(&(eee->device), (u_char*)decrypted_msg, len);
-                //   releaseOne(&(eee->mt_queue->lock4send));
-              // }
+                if (lockOne(&(eee->mt_queue->lock4recv)) == 0) {
+                    data_sent_len = tuntap_write(&(eee->device), (u_char*)decrypted_msg, len);
+                    releaseOne(&(eee->mt_queue->lock4recv));
+                }
 
                 if (data_sent_len != len)
                     traceEvent(TRACE_WARNING, "tuntap_write() [sent=%d][attempted_to_send=%d] [%s]\n",
@@ -1144,7 +1144,6 @@ static void send_package2tapQ(recving_pkg pkg) {
         }
 
         /* else silently ignore empty packet. */
-
     }
     else if (hdr->msg_type == MSG_TYPE_REGISTER) { /*注册请求数据包，发送响应 */
         traceEvent(TRACE_INFO, "Received registration request from remote peer [ip=%s:%hu]",

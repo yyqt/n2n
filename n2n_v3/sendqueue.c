@@ -70,6 +70,7 @@ multiThreadQueue_t createQueue() {
 	memset(mutex, 0, size0);
 	pthread_mutex_init(&mutex->lock4Queue, NULL);
 	pthread_mutex_init(&mutex->lock4send, NULL);
+	pthread_mutex_init(&mutex->lock4recv, NULL);
 	pthread_mutex_init(&mutex->lock4UpdatePeer, NULL);
 	/*mutex->lock4Queue = PTHREAD_MUTEX_INITIALIZER;
 	mutex->lock4CheckPeer = PTHREAD_MUTEX_INITIALIZER;
