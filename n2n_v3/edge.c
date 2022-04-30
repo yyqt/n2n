@@ -789,74 +789,80 @@ static const struct option long_options[] = {
 
 
 /** A layer-2 packet was received at the tunnel and needs to be sent via UDP. */
-static void send_packet2net(n2n_edge_t * eee,
-			    char *decrypted_msg, size_t len) {
-  ipstr_t ip_buf;
-  char packet[2048];
-  int data_sent_len;
-  struct n2n_packet_header hdr;
-  struct peer_addr destination;
-  macstr_t mac_buf;
-  macstr_t mac2_buf;
-  struct ether_header *eh = (struct ether_header*)decrypted_msg;
+static void send_packet2net(n2n_edge_t* eee,
+    char* decrypted_msg, size_t len) {
+    ipstr_t ip_buf;
+    char packet[2048];
+    int data_sent_len;
+    struct n2n_packet_header hdr;
+    struct peer_addr destination;
+    macstr_t mac_buf;
+    macstr_t mac2_buf;
+    struct ether_header* eh = (struct ether_header*)decrypted_msg;
 
-  /* Discard IP packets that are not originated by this hosts */
-  if(!(eee->allow_routing)) {
-    if(ntohs(eh->ether_type) == 0x0800) {
-      /* This is an IP packet from the local source address - not forwarded. */
+    /* Discard IP packets that are not originated by this hosts */
+    if (!(eee->allow_routing)) {
+        if (ntohs(eh->ether_type) == 0x0800) {
+            /* This is an IP packet from the local source address - not forwarded. */
 #define ETH_FRAMESIZE 14
 #define IP4_SRCOFFSET 12
-      u_int32_t dst;
-      memcpy( &dst, &decrypted_msg[ETH_FRAMESIZE + IP4_SRCOFFSET], sizeof(dst) );
+            u_int32_t dst;
+            memcpy(&dst, &decrypted_msg[ETH_FRAMESIZE + IP4_SRCOFFSET], sizeof(dst));
 
-      /* The following comparison works because device.ip_addr is stored in network order */
-      if( dst != eee->device.ip_addr) {
-		/* This is a packet that needs to be routed */
-		traceEvent(TRACE_INFO, "Discarding routed packet [%s]", 
-				               intoa(ntohl(dst), ip_buf, sizeof(ip_buf)));
-		return;
-      } else {
-	/* This packet is originated by us */
-	/* traceEvent(TRACE_INFO, "Sending non-routed packet"); */
-      }
+            /* The following comparison works because device.ip_addr is stored in network order */
+            if (dst != eee->device.ip_addr) {
+                /* This is a packet that needs to be routed */
+                traceEvent(TRACE_INFO, "Discarding routed packet [%s]",
+                    intoa(ntohl(dst), ip_buf, sizeof(ip_buf)));
+                return;
+            }
+            else {
+                /* This packet is originated by us */
+                /* traceEvent(TRACE_INFO, "Sending non-routed packet"); */
+            }
+        }
     }
-  }
 
-  /* Encrypt "decrypted_msg" into the second half of the n2n packet. */
-  len = TwoFishEncryptRaw((u_int8_t *)decrypted_msg,
-			  (u_int8_t *)&packet[N2N_PKT_HDR_SIZE], len, eee->enc_tf);
+    /* Encrypt "decrypted_msg" into the second half of the n2n packet. */
+    len = TwoFishEncryptRaw((u_int8_t*)decrypted_msg,
+        (u_int8_t*)&packet[N2N_PKT_HDR_SIZE], len, eee->enc_tf);
 
-  /* Add the n2n header to the start of the n2n packet. */
-  fill_standard_header_fields( &(eee->sinfo), &hdr, (char*)(eee->device.mac_addr) );
-  hdr.msg_type = MSG_TYPE_PACKET;
-  hdr.sent_by_supernode = 0;
-  memcpy(hdr.community_name, eee->community_name, COMMUNITY_LEN);
-  memcpy(hdr.dst_mac, decrypted_msg, 6);
+    /* Add the n2n header to the start of the n2n packet. */
+    fill_standard_header_fields(&(eee->sinfo), &hdr, (char*)(eee->device.mac_addr));
+    hdr.msg_type = MSG_TYPE_PACKET;
+    hdr.sent_by_supernode = 0;
+    memcpy(hdr.community_name, eee->community_name, COMMUNITY_LEN);
+    memcpy(hdr.dst_mac, decrypted_msg, 6);
 
-  marshall_n2n_packet_header( (u_int8_t *)packet, &hdr );
+    marshall_n2n_packet_header((u_int8_t*)packet, &hdr);
 
-  len += N2N_PKT_HDR_SIZE;
+    len += N2N_PKT_HDR_SIZE;
 
-  if(find_peer_destination(eee, eh->ether_dhost, &destination))
-    traceEvent(TRACE_INFO, "** Going direct [dst_mac=%s][dest=%s:%hu]",
-	       macaddr_str((char*)eh->ether_dhost, mac_buf, sizeof(mac_buf)),
-	       intoa(ntohl(destination.addr_type.v4_addr), ip_buf, sizeof(ip_buf)),
-	       ntohs(destination.port));
-  else
-    traceEvent(TRACE_INFO, "   Going via supernode [src_mac=%s][dst_mac=%s]",
-	       macaddr_str((char*)eh->ether_shost, mac_buf, sizeof(mac_buf)),
-	       macaddr_str((char*)eh->ether_dhost, mac2_buf, sizeof(mac2_buf)));
+    if (find_peer_destination(eee, eh->ether_dhost, &destination))
+        traceEvent(TRACE_INFO, "** Going direct [dst_mac=%s][dest=%s:%hu]",
+            macaddr_str((char*)eh->ether_dhost, mac_buf, sizeof(mac_buf)),
+            intoa(ntohl(destination.addr_type.v4_addr), ip_buf, sizeof(ip_buf)),
+            ntohs(destination.port));
+    else
+        traceEvent(TRACE_INFO, "   Going via supernode [src_mac=%s][dst_mac=%s]",
+            macaddr_str((char*)eh->ether_shost, mac_buf, sizeof(mac_buf)),
+            macaddr_str((char*)eh->ether_dhost, mac2_buf, sizeof(mac2_buf)));
+    //if (lockOne(&(eee->mt_queue->lock4send)) == 0) {
+        data_sent_len = reliable_sendto(&(eee->sinfo), packet, &len, &destination,
+            N2N_COMPRESSION_ENABLED);
+      //  releaseOne(&(eee->mt_queue->lock4send));
+    //}
+   // else {
+  //      data_sent_len = 0;
+  //  }
 
-  data_sent_len = reliable_sendto( &(eee->sinfo), packet, &len, &destination, 
-                                   N2N_COMPRESSION_ENABLED);
-
-  if(data_sent_len != len)
-    traceEvent(TRACE_WARNING, "sendto() [sent=%d][attempted_to_send=%d] [%s]\n",
-	       data_sent_len, len, strerror(errno));
-  else {
-    ++(eee->pkt_sent);
-    traceEvent(TRACE_INFO, "Sent %d byte MSG_TYPE_PACKET ok", data_sent_len);
-  }
+    if (data_sent_len != len)
+        traceEvent(TRACE_WARNING, "sendto() [sent=%d][attempted_to_send=%d] [%s]\n",
+            data_sent_len, len, strerror(errno));
+    else {
+        ++(eee->pkt_sent);
+        traceEvent(TRACE_INFO, "Sent %d byte MSG_TYPE_PACKET ok", data_sent_len);
+    }
 }
 
 /* ***************************************************** */

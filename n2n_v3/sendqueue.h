@@ -39,7 +39,7 @@ typedef struct multiThreadQueue
 	//检查对端的锁
 	pthread_mutex_t lock4Queue;
 	//检查对端的锁
-	pthread_mutex_t lock4CheckPeer;
+	pthread_mutex_t lock4send;
 	//更新终节点的锁
 	pthread_mutex_t lock4UpdatePeer;
 	//状态，为1正常，2退出
@@ -86,5 +86,5 @@ void enqueue(multiThreadQueue_t queue, char* data, u_int8_t type);
 struct queueItem dequeue(multiThreadQueue_t queue);
 void sendproc(multiThreadQueue_t queue);
 void startConsumers(multiThreadQueue_t queue, int threadcount);
-int lockone(pthread_mutex_t* m);
-int release(pthread_mutex_t* m);
+int lockOne(pthread_mutex_t* m);
+int releaseOne(pthread_mutex_t* m);
