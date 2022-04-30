@@ -128,7 +128,7 @@ typedef struct tuntap_dev {
  * frames. Doing this will break compatibility with the standard n2n packet
  * format so do it only for experimentation. All edges must be built with the
  * same value if they are to understand each other. */
-#define N2N_COMPRESSION_ENABLED 1
+#define N2N_COMPRESSION_ENABLED 0
 
 #define DEFAULT_MTU   1400
 
@@ -192,6 +192,21 @@ struct peer_info {
 struct n2n_edge; /* defined in edge.c */
 typedef struct n2n_edge         n2n_edge_t;
 
+typedef struct sending_package_st {
+	n2n_edge_t* eee;
+	u_char decrypted_msg[2048];
+	size_t len;
+	void (*p)(void*); //处理函数
+} *sending_pkg;
+
+typedef struct recving_package_st {
+	n2n_edge_t* eee;
+	struct n2n_packet_header hdr;
+	u_char packet[2048];
+	size_t len;
+	struct peer_addr sender;
+	void (*p)(void*); //处理函数
+} *recving_pkg;
 
 /* ************************************** */
 
@@ -298,3 +313,4 @@ size_t purge_expired_registrations2( struct peer_info ** peer_list ,struct peer_
 extern char *version, *osName, *buildDate;
 
 #endif /* _N2N_H_ */
+

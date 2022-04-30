@@ -26,6 +26,13 @@
 #include "n2n.h"
 #include <assert.h>
 #include <sys/stat.h>
+#include <semaphore.h>
+#ifdef Windows
+//#include <semaphore.h>
+#else
+#include <Windows.h>
+#endif // Windows
+#include "sendqueue.h"
 
 /** Time between logging system STATUS messages */
 #define STATUS_UPDATE_INTERVAL (30 * 60) /*secs*/
@@ -57,6 +64,7 @@ struct n2n_edge
   struct peer_info *  known_peers /* = NULL*/;
   struct peer_info *  pending_peers /* = NULL*/;
   time_t              last_register /* = 0*/;
+  multiThreadQueue_t mt_queue; /*线程安全的queue*/
 };
 
 static void supernode2addr(n2n_edge_t * eee, char* addr);
@@ -207,7 +215,6 @@ static int edge_init(n2n_edge_t * eee) {
   eee->known_peers   = NULL;
   eee->pending_peers = NULL;
   eee->last_register = 0;
-
   if(lzo_init() != LZO_E_OK) {
     traceEvent(TRACE_ERROR, "LZO compression error");
     return(-1);
@@ -291,7 +298,7 @@ static void help() {
 
   printf("\nEnvironment variables:\n");
   printf("  N2N_KEY                | Encryption key (ASCII)\n" );
-
+  t();
   exit(0);
 }
 
@@ -349,7 +356,8 @@ void try_send_register( n2n_edge_t * eee,
                         const struct n2n_packet_header * hdr );
 void set_peer_operational( n2n_edge_t * eee, const struct n2n_packet_header * hdr );
 
-
+static void send_package2netQ(sending_pkg pkg);
+static void send_package2tapQ(recving_pkg pkg);
 
 /** Start the registration process.
  *
@@ -364,66 +372,79 @@ void set_peer_operational( n2n_edge_t * eee, const struct n2n_packet_header * hd
  *
  *  Called from the main loop when Rx a packet for our device mac.
  */
-void try_send_register( n2n_edge_t * eee,
-                        const struct n2n_packet_header * hdr )
+void try_send_register(n2n_edge_t* eee,
+    const struct n2n_packet_header* hdr)
 {
-  ipstr_t ip_buf;
+    ipstr_t ip_buf;
 
-  /* REVISIT: purge of pending_peers not yet done. */
-  struct peer_info * scan = find_peer_by_mac( eee->pending_peers, hdr->src_mac );
+    /* REVISIT: purge of pending_peers not yet done. */
+    struct peer_info* scan = find_peer_by_mac(eee->pending_peers, hdr->src_mac);
 
-  if ( NULL == scan )
+    if (NULL == scan)
     {
-      scan = calloc( 1, sizeof( struct peer_info ) );
+        if (pthread_mutex_lock(&eee->mt_queue->lock4UpdatePeer) == 0) {
+            scan = find_peer_by_mac(eee->pending_peers, hdr->src_mac);
+            if (NULL == scan) {
+                scan = calloc(1, sizeof(struct peer_info));
 
-      memcpy(scan->mac_addr, hdr->src_mac, 6);
-      scan->public_ip = hdr->public_ip;
-      scan->last_seen = time(NULL); /* Don't change this it marks the pending peer for removal. */
-      scan->regcount=1;
-      peer_list_add( &(eee->pending_peers), scan );
+                memcpy(scan->mac_addr, hdr->src_mac, 6);
+                scan->public_ip = hdr->public_ip;
+                scan->last_seen = time(NULL); /* Don't change this it marks the pending peer for removal. */
+                scan->regcount = 1;
+                peer_list_add(&(eee->pending_peers), scan);
 
-      traceEvent( TRACE_NORMAL, "Pending peers list size=%ld",
-		  peer_list_size( eee->pending_peers ) );
+                traceEvent(TRACE_NORMAL, "Pending peers list size=%ld",
+                    peer_list_size(eee->pending_peers));
 
-      traceEvent( TRACE_NORMAL, "Sending REGISTER request to %s:%hu",
-		  intoa(ntohl(scan->public_ip.addr_type.v4_addr), ip_buf, sizeof(ip_buf)),
-		  ntohs(scan->public_ip.port));
+                traceEvent(TRACE_NORMAL, "Sending REGISTER request to %s:%hu",
+                    intoa(ntohl(scan->public_ip.addr_type.v4_addr), ip_buf, sizeof(ip_buf)),
+                    ntohs(scan->public_ip.port));
 
-      send_register(eee,
-		    &(scan->public_ip),
-		    0 /* is not ACK */ );
+                send_register(eee,
+                    &(scan->public_ip),
+                    0 /* is not ACK */);
 
-      /* pending_peers now owns scan. */
-    }
-  else
-    {
-      /* scan already in pending_peers. */
-
-      if ( 0 == hdr->sent_by_supernode )
-        {
-	  /* over-write supernode-based socket with direct socket. */
-	  scan->public_ip = hdr->public_ip;
-
-	  traceEvent( TRACE_NORMAL, "Sending additional REGISTER request to %s:%hu",
-		      intoa(ntohl(scan->public_ip.addr_type.v4_addr), ip_buf, sizeof(ip_buf)),
-		      ntohs(scan->public_ip.port));
-
-
-	  send_register(eee,
-			&(scan->public_ip),
-			0 /* is not ACK */ );
+                /* pending_peers now owns scan. */
+            }
         }
-        else if(scan->regcount>0&&scan->regcount < 3 && (time(NULL)- scan->last_seen) > scan->regcount ){
-        	scan->regcount= scan->regcount+1;
-        	
-        	traceEvent( TRACE_NORMAL, "Sending 2 REGISTER request to %s:%hu",
-		      intoa(ntohl(scan->public_ip.addr_type.v4_addr), ip_buf, sizeof(ip_buf)),
-		      ntohs(scan->public_ip.port));
-		      
-        	 send_register(eee,
-		    &(scan->public_ip),
-		    0 /* is not ACK */ );
-		    
+    }
+    else
+    {
+        /* scan already in pending_peers. */
+
+        if (0 == hdr->sent_by_supernode)
+        {
+            if (pthread_mutex_lock(&eee->mt_queue->lock4UpdatePeer) == 0) {
+                if (0 == hdr->sent_by_supernode)
+                {
+                    /* over-write supernode-based socket with direct socket. */
+                    scan->public_ip = hdr->public_ip;
+
+                    traceEvent(TRACE_NORMAL, "Sending additional REGISTER request to %s:%hu",
+                        intoa(ntohl(scan->public_ip.addr_type.v4_addr), ip_buf, sizeof(ip_buf)),
+                        ntohs(scan->public_ip.port));
+
+
+                    send_register(eee,
+                        &(scan->public_ip),
+                        0 /* is not ACK */);
+                }
+            }
+        }
+        else if (scan->regcount > 0 && scan->regcount < 3 && (time(NULL) - scan->last_seen) > scan->regcount) {
+            if (pthread_mutex_lock(&eee->mt_queue->lock4UpdatePeer) == 0) {
+                if (scan->regcount > 0 && scan->regcount < 3 && (time(NULL) - scan->last_seen) > scan->regcount) {
+                    scan->regcount = scan->regcount + 1;
+
+                    traceEvent(TRACE_NORMAL, "Sending 2 REGISTER request to %s:%hu",
+                        intoa(ntohl(scan->public_ip.addr_type.v4_addr), ip_buf, sizeof(ip_buf)),
+                        ntohs(scan->public_ip.port));
+
+                    send_register(eee,
+                        &(scan->public_ip),
+                        0 /* is not ACK */);
+                }
+            }
         }
     }
 }
@@ -919,164 +940,209 @@ static int check_received_packet(n2n_edge_t * eee, char *pkt,
  *
  *  REVISIT: fails if more than one packet is waiting to be read.
  */
-static void readFromTAPSocket( n2n_edge_t * eee )
+static void readFromTAPSocket(n2n_edge_t * eee )
 {
   /* tun -> remote */
-  u_char decrypted_msg[2048];
+    sending_pkg pkg = malloc(sizeof(struct sending_package_st));
+  //u_char decrypted_msg[2048];
+  //size_t len;
+  //len = tuntap_read(&(eee->device), decrypted_msg, sizeof(decrypted_msg));
+   
   size_t len;
-
-  len = tuntap_read(&(eee->device), decrypted_msg, sizeof(decrypted_msg));
-
-  if((len <= 0) || (len > sizeof(decrypted_msg)))
+  len = tuntap_read(&(eee->device), pkg->decrypted_msg, sizeof(pkg->decrypted_msg));
+  pkg->len = len;
+  pkg->eee = eee;
+  pkg->p = send_package2netQ;
+  if((len <= 0) || (len > sizeof(pkg->decrypted_msg)))
     traceEvent(TRACE_WARNING, "read()=%d [%d/%s]\n",
 	       len, errno, strerror(errno));
   else {
     traceEvent(TRACE_INFO, "### Rx L2 Msg (%d) tun -> network", len);
 
-    if ( eee->drop_ipv6_ndp && is_ip6_discovery( decrypted_msg, len ) ) {
+    if ( eee->drop_ipv6_ndp && is_ip6_discovery( pkg->decrypted_msg, len ) ) {
       traceEvent(TRACE_WARNING, "Dropping unsupported IPv6 neighbour discovery packet");
     } else {
-      send_packet2net(eee, (char*)decrypted_msg, len);
+      //send_packet2net(eee, (char*)decrypted_msg, len);
+        enqueue(eee->mt_queue, pkg, 1);
+        return;
     }
   }
+  free(pkg);
+}
+
+static void send_package2netQ(sending_pkg pkg) {
+    if (pkg == NULL) {
+        return;
+    }
+    send_packet2net(pkg->eee, (char*)pkg->decrypted_msg, pkg->len);
+    free(pkg);
 }
 
 /* ***************************************************** */
 
 
-void readFromIPSocket( n2n_edge_t * eee )
+void readFromIPSocket(n2n_edge_t* eee)
 {
-  ipstr_t ip_buf;
-  macstr_t mac_buf;
-  char packet[2048], decrypted_msg[2048];
-  size_t len;
-  int data_sent_len;
-  struct peer_addr sender;
+    recving_pkg pkg = malloc(sizeof(struct recving_package_st));
+    ipstr_t ip_buf;
+    macstr_t mac_buf;
+    //  char packet[2048], decrypted_msg[2048];
+    size_t len;
+    int data_sent_len;
+    // struct peer_addr sender;
 
-  /* remote -> tun */
-  u_int8_t discarded_pkt;
-  struct n2n_packet_header hdr_storage;
+     /* remote -> tun */
+    u_int8_t discarded_pkt;
+    //struct n2n_packet_header hdr_storage;
 
-  /*接收数据udp*/
-  len = receive_data( &(eee->sinfo), packet, sizeof(packet), &sender,
-                      &discarded_pkt, (char*)(eee->device.mac_addr), 
-                      N2N_COMPRESSION_ENABLED, &hdr_storage);
-
-  if(len <= 0) return;
-
-  traceEvent(TRACE_INFO, "### Rx N2N Msg network -> tun");
-
-  if(discarded_pkt) {
-    traceEvent(TRACE_INFO, "Discarded incoming pkt");
-  } else {
-    if(len <= 0)
-      traceEvent(TRACE_WARNING, "receive_data()=%d [%s]\n", len, strerror(errno));
-    else {
-      if(len < N2N_PKT_HDR_SIZE)
-	traceEvent(TRACE_WARNING, "received packet too short [len=%d]\n", len);
-      else {
-	struct n2n_packet_header *hdr = &hdr_storage;
-
-	traceEvent(TRACE_INFO, "Received packet from %s:%hu",
-		   intoa(ntohl(sender.addr_type.v4_addr), ip_buf, sizeof(ip_buf)),
-		   ntohs(sender.port));
-
-	traceEvent(TRACE_INFO, "Received message [msg_type=%s] from %s [dst mac=%s]",
-		   msg_type2str(hdr->msg_type),
-		   hdr->sent_by_supernode ? "supernode" : "peer",
-		   macaddr_str(hdr->dst_mac, mac_buf, sizeof(mac_buf)));
-
-	if(hdr->version != N2N_PKT_VERSION) {
-	  traceEvent(TRACE_WARNING,
-		     "Received packet with unknown protocol version (%d): discarded\n",
-		     hdr->version);
-	  return;
-	}
-
-	/* FIX - Add IPv6 support */
-	if(hdr->public_ip.addr_type.v4_addr == 0) {
-	  hdr->public_ip.addr_type.v4_addr = sender.addr_type.v4_addr;
-	  hdr->public_ip.port = sender.port;
-	  hdr->public_ip.family = AF_INET;
-	}
-
-	if(strncmp(hdr->community_name, eee->community_name, COMMUNITY_LEN) != 0) {
-	  traceEvent(TRACE_WARNING, "Received packet with invalid community [expected=%s][received=%s]\n",
-		     eee->community_name, hdr->community_name);
-	} else {
-	  if(hdr->msg_type == MSG_TYPE_PACKET) {
-	    /* assert: the packet received is destined for device.mac_addr or broadcast MAC. */
-        /* 数据包，先解密，再检查包是否合格，再检查对端节点是否存在，不存在则相互注册，再写入tab/tun结束*/
-	    len -= N2N_PKT_HDR_SIZE;
-
-	    /* Decrypt message first */
-        /* 解密*/
-	    len = TwoFishDecryptRaw((u_int8_t *)&packet[N2N_PKT_HDR_SIZE],
-				    (u_int8_t *)decrypted_msg, len, eee->dec_tf);
-
-	    if(len > 0) {
-	      if(check_received_packet(eee, decrypted_msg, len) == 0) {
-
-		if ( 0 == memcmp(hdr->dst_mac, eee->device.mac_addr, 6) )
-		  {
-		    check_peer( eee, hdr );
-		  }
-
-        /*数据包写入tab/tun*/
-		data_sent_len = tuntap_write(&(eee->device), (u_char*)decrypted_msg, len);
-
-		if(data_sent_len != len)
-		  traceEvent(TRACE_WARNING, "tuntap_write() [sent=%d][attempted_to_send=%d] [%s]\n",
-			     data_sent_len, len, strerror(errno));
-		else {
-		  /* Normal situation. */
-		  traceEvent(TRACE_INFO, "### Tx L2 Msg -> tun");
-		}
-	      } else {
-			traceEvent(TRACE_WARNING, "Bad destination: message discarded");
-	      }
-	    }
-	    /* else silently ignore empty packet. */
-
-	  } else if(hdr->msg_type == MSG_TYPE_REGISTER) { /*注册请求数据包，发送响应 */
-	    traceEvent(TRACE_INFO, "Received registration request from remote peer [ip=%s:%hu]",
-		       intoa(ntohl(hdr->public_ip.addr_type.v4_addr), ip_buf, sizeof(ip_buf)),
-		       ntohs(hdr->public_ip.port));
-	    if ( 0 == memcmp(hdr->dst_mac, (eee->device.mac_addr), 6) )
-	      {
-		check_peer( eee, hdr );
-	      }
-
-
-	    send_register(eee, &hdr->public_ip, 1); /* Send ACK back */ /*发送响应*/
-	  } else if(hdr->msg_type == MSG_TYPE_REGISTER_ACK) {
-	    traceEvent(TRACE_NORMAL, "Received REGISTER_ACK from remote peer [ip=%s:%hu]",
-		       intoa(ntohl(hdr->public_ip.addr_type.v4_addr), ip_buf, sizeof(ip_buf)),
-		       ntohs(hdr->public_ip.port));
-
-	    /* if ( 0 == memcmp(hdr->dst_mac, eee->device.mac_addr, 6) ) */
-	    {
-	      if ( hdr->sent_by_supernode )
-                {
-		  /* Response to supernode registration. Supernode is not in the pending_peers list. */
-                }
-	      else
-                {
-		  /* Move from pending_peers to known_peers; ignore if not in pending. */
-          /* 相互注册（点对点）响应包，说明可直连，移到optional队列 */
-		  set_peer_operational( eee, hdr );
-                }
-	    }
-
-	  } else {
-	    traceEvent(TRACE_WARNING, "Unable to handle packet type %d: ignored\n", hdr->msg_type);
-	    return;
-	  }
-	}
-      }
+    /*接收数据udp*/
+    len = receive_data(&(eee->sinfo), pkg->packet, sizeof(pkg->packet), &pkg->sender,
+        &discarded_pkt, (char*)(eee->device.mac_addr),
+        N2N_COMPRESSION_ENABLED, &pkg->hdr);
+    pkg->len = len;
+    pkg->p = send_package2tapQ;
+    if (len <= 0) {
+        free(pkg);
+        return;
     }
-  }
+
+    traceEvent(TRACE_INFO, "### Rx N2N Msg network -> tun");
+
+    if (discarded_pkt) {
+        traceEvent(TRACE_INFO, "Discarded incoming pkt");
+    }
+    else {
+        if (len <= 0)
+            traceEvent(TRACE_WARNING, "receive_data()=%d [%s]\n", len, strerror(errno));
+        else {
+            if (len < N2N_PKT_HDR_SIZE)
+                traceEvent(TRACE_WARNING, "received packet too short [len=%d]\n", len);
+            else {
+                struct n2n_packet_header* hdr = &pkg->hdr;// &hdr_storage;
+
+                traceEvent(TRACE_INFO, "Received packet from %s:%hu",
+                    intoa(ntohl(pkg->sender.addr_type.v4_addr), ip_buf, sizeof(ip_buf)),
+                    ntohs(pkg->sender.port));
+
+                traceEvent(TRACE_INFO, "Received message [msg_type=%s] from %s [dst mac=%s]",
+                    msg_type2str(hdr->msg_type),
+                    hdr->sent_by_supernode ? "supernode" : "peer",
+                    macaddr_str(hdr->dst_mac, mac_buf, sizeof(mac_buf)));
+
+                if (hdr->version != N2N_PKT_VERSION) {
+                    traceEvent(TRACE_WARNING,
+                        "Received packet with unknown protocol version (%d): discarded\n",
+                        hdr->version);
+                    free(pkg);
+                    return;
+                }
+
+                /* FIX - Add IPv6 support */
+                if (hdr->public_ip.addr_type.v4_addr == 0) {
+                    hdr->public_ip.addr_type.v4_addr = pkg->sender.addr_type.v4_addr;
+                    hdr->public_ip.port = pkg->sender.port;
+                    hdr->public_ip.family = AF_INET;
+                }
+
+                if (strncmp(hdr->community_name, eee->community_name, COMMUNITY_LEN) != 0) {
+                    traceEvent(TRACE_WARNING, "Received packet with invalid community [expected=%s][received=%s]\n",
+                        eee->community_name, hdr->community_name);
+                }
+                else {
+                    enqueue(eee->mt_queue, pkg, 2);
+                    return;
+                }
+            }
+        }
+    }
+    free(pkg);
 }
+
+static void send_package2tapQ(recving_pkg pkg) {
+    if (pkg == NULL) {
+        return;
+    }
+    struct n2n_packet_header* hdr = &pkg->hdr;
+    char decrypted_msg[2048];
+    int len = pkg->len;
+    n2n_edge_t* eee = pkg->eee;
+    ipstr_t ip_buf;
+    macstr_t mac_buf;
+    int data_sent_len;
+    if (hdr->msg_type == MSG_TYPE_PACKET) {
+        /* assert: the packet received is destined for device.mac_addr or broadcast MAC. */
+        /* 数据包，先解密，再检查包是否合格，再检查对端节点是否存在，不存在则相互注册，再写入tab/tun结束*/
+        len -= N2N_PKT_HDR_SIZE;
+
+        /* Decrypt message first */
+        /* 解密*/
+        len = TwoFishDecryptRaw((u_int8_t*)&pkg->packet[N2N_PKT_HDR_SIZE],
+            (u_int8_t*)decrypted_msg, len, eee->dec_tf);
+
+        if (len > 0) {
+            if (check_received_packet(eee, decrypted_msg, len) == 0) {
+
+                if (0 == memcmp(hdr->dst_mac, eee->device.mac_addr, 6))
+                {
+                    check_peer(eee, hdr);
+                }
+
+                /*数据包写入tab/tun*/
+                data_sent_len = tuntap_write(&(eee->device), (u_char*)decrypted_msg, len);
+
+                if (data_sent_len != len)
+                    traceEvent(TRACE_WARNING, "tuntap_write() [sent=%d][attempted_to_send=%d] [%s]\n",
+                        data_sent_len, len, strerror(errno));
+                else {
+                    /* Normal situation. */
+                    traceEvent(TRACE_INFO, "### Tx L2 Msg -> tun");
+                }
+            }
+            else {
+                traceEvent(TRACE_WARNING, "Bad destination: message discarded");
+            }
+        }
+        /* else silently ignore empty packet. */
+
+    }
+    else if (hdr->msg_type == MSG_TYPE_REGISTER) { /*注册请求数据包，发送响应 */
+        traceEvent(TRACE_INFO, "Received registration request from remote peer [ip=%s:%hu]",
+            intoa(ntohl(hdr->public_ip.addr_type.v4_addr), ip_buf, sizeof(ip_buf)),
+            ntohs(hdr->public_ip.port));
+        if (0 == memcmp(hdr->dst_mac, (eee->device.mac_addr), 6))
+        {
+            check_peer(eee, hdr);
+        }
+        send_register(eee, &hdr->public_ip, 1); /* Send ACK back */ /*发送响应*/
+    }
+    else if (hdr->msg_type == MSG_TYPE_REGISTER_ACK) {
+        traceEvent(TRACE_NORMAL, "Received REGISTER_ACK from remote peer [ip=%s:%hu]",
+            intoa(ntohl(hdr->public_ip.addr_type.v4_addr), ip_buf, sizeof(ip_buf)),
+            ntohs(hdr->public_ip.port));
+
+        /* if ( 0 == memcmp(hdr->dst_mac, eee->device.mac_addr, 6) ) */
+        {
+            if (hdr->sent_by_supernode)
+            {
+                /* Response to supernode registration. Supernode is not in the pending_peers list. */
+            }
+            else
+            {
+                /* Move from pending_peers to known_peers; ignore if not in pending. */
+                /* 相互注册（点对点）响应包，说明可直连，移到optional队列 */
+                if (pthread_mutex_lock(&pkg->eee->mt_queue->lock4UpdatePeer) == 0) {
+                    set_peer_operational(eee, hdr);
+                }
+            }
+        }
+    }
+    else {
+        traceEvent(TRACE_WARNING, "Unable to handle packet type %d: ignored\n", hdr->msg_type);
+        //return;
+    }
+    free(pkg);
+}
+
 
 /* ***************************************************** */
 
@@ -1190,7 +1256,7 @@ int main(int argc, char* argv[]) {
   int     i, effectiveargc=0;
   char ** effectiveargv=NULL;
   char  * linebuffer = NULL;
-
+  int threadcount = 2; //默认线程数
   n2n_edge_t eee; /* single instance for this program */
 
   if (-1 == edge_init(&eee) ){
@@ -1373,6 +1439,10 @@ effectiveargv[effectiveargc] = 0;
       return(-1);
     }
   }
+
+  //初始化队列
+  eee.mt_queue = createQueue();
+  startConsumers(eee.mt_queue, threadcount);
 
 #ifndef WIN32
   if ( fork_as_daemon )

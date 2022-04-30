@@ -7,6 +7,7 @@
 #include <pthread.h>
 #include <semaphore.h>
 #include <windows.h>
+
 #ifndef WIN32
 #include <asm/atomic.h>
 #else
@@ -46,7 +47,7 @@ void t() {
 	sem_post(&sem);
 	printf("post2 over\r\n");*/
 	printf("queue creating\r\n");
-	struct multiThreadQueue*  queue = createQueue();
+	multiThreadQueue_t  queue = createQueue();
 	startConsumers(queue, 2);
 	Sleep(2000);
 	enqueue(queue, NULL, 1);
@@ -63,9 +64,9 @@ void* proc(void* arg) {
 	printf("wait over\r\n");
 }
 
-struct multiThreadQueue* createQueue() {
+multiThreadQueue_t createQueue() {
 	int size0 = sizeof(struct multiThreadQueue);
-	struct multiThreadQueue* mutex = malloc(size0);
+	multiThreadQueue_t mutex = malloc(size0);
 	memset(mutex, 0, size0);
 	mutex->lock4Queue = PTHREAD_MUTEX_INITIALIZER;
 	mutex->lock4CheckPeer = PTHREAD_MUTEX_INITIALIZER;
@@ -76,7 +77,7 @@ struct multiThreadQueue* createQueue() {
 	return mutex;
 }
 
-void enqueue(struct multiThreadQueue* queue, char* data, u_int8_t type) {
+void enqueue(multiThreadQueue_t queue, char* data, u_int8_t type) {
 	if (sem_wait(&queue->semiToProduce) == 0) {
 		struct queueItem s;// *s = malloc(sizeof(struct queueItem));
 		s.data = data;
@@ -98,40 +99,51 @@ void enqueue(struct multiThreadQueue* queue, char* data, u_int8_t type) {
 	}
 }
 
-struct queueItem dequeue(struct multiThreadQueue* queue) {
+queueItem_t dequeue(multiThreadQueue_t queue) {
 	if (sem_wait(&queue->semiToConsume) == 0) {
 		if (pthread_mutex_lock(&queue->lock4Queue) == 0) {
 			u_int16_t curridx = queue->dequeueIndex++;
 			curridx = curridx % BUFFERLEN;
-			struct queueItem s = queue->datalist[curridx];
+			queueItem_t s = queue->datalist[curridx];
 			pthread_mutex_unlock(&queue->lock4Queue);
 			sem_post(&queue->semiToProduce);
 			return s;
 		}
 	}
-	struct queueItem item;
+	queueItem_t item;
 	item.data = NULL;
 	item.type = 0;
 	return item;
 }
 
-void sendproc(struct multiThreadQueue* queue) {
+void sendproc(multiThreadQueue_t queue) {
 	while (1) {
-		struct queueItem item = dequeue(queue); //消息
+		queueItem_t item = dequeue(queue); //消息
+		if (item.data == NULL) {
+			continue;
+		}
 		//printf("出列列：%d\r\n", item.type);
 		switch (item.type)
 		{
-		case 1:
+		case 1: //向socket发送
+		{
+			sending_pkg t = item.data;
+			(*t->p)(t);
 			break;
-		case 2:
+		}
+		case 2: //向tap发送
+		{
+			recving_pkg t = item.data;
+			(*t->p)(t);
 			break;
+		}
 		default:
 			break;
 		}
 	}
 }
 
-void startConsumers(struct multiThreadQueue* queue, int threadcount) {
+void startConsumers(multiThreadQueue_t queue, int threadcount) {
 	for (int i = 0; i < threadcount; i++) {
 		pthread_t p1;
 		pthread_create(&p1, NULL, sendproc, queue);

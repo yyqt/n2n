@@ -9,7 +9,7 @@
 #include <semaphore.h>
 #define BUFFERLEN 512
 
-struct queueItem
+typedef struct queueItem
 {
 	//数据地址
 	char *data;
@@ -21,13 +21,13 @@ struct queueItem
 	//u_int8_t state;
 	//类型（1加密发送，2解密输入）
 	u_int8_t type;
-};
+} queueItem_t;
 
 //一个环形队列（线程安全）
-struct multiThreadQueue
+typedef struct multiThreadQueue
 {
 	//数据缓冲
-	struct queueItem datalist[BUFFERLEN];
+	queueItem_t datalist[BUFFERLEN];
 	//当前位置
 	u_int16_t enqueueIndex;
 	//发送位置
@@ -42,7 +42,7 @@ struct multiThreadQueue
 	pthread_mutex_t lock4CheckPeer;
 	//更新终节点的锁
 	pthread_mutex_t lock4UpdatePeer;
-};
+} *multiThreadQueue_t;
 
 
 /*
@@ -79,8 +79,8 @@ long safeDecrement(long* num);
 void* proc(void* arg);
 void t();
 
-struct multiThreadQueue* createQueue();
-void enqueue(struct multiThreadQueue* queue, char* data, u_int8_t type);
-struct queueItem dequeue(struct multiThreadQueue* queue);
-void sendproc(struct multiThreadQueue *queue);
-void startConsumers(struct multiThreadQueue* queue, int threadcount);
+multiThreadQueue_t createQueue();
+void enqueue(multiThreadQueue_t queue, char* data, u_int8_t type);
+struct queueItem dequeue(multiThreadQueue_t queue);
+void sendproc(multiThreadQueue_t queue);
+void startConsumers(multiThreadQueue_t queue, int threadcount);
