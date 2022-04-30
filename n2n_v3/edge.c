@@ -1147,15 +1147,15 @@ static void send_package2tapQ(recving_pkg pkg) {
             {
                 /* Move from pending_peers to known_peers; ignore if not in pending. */
                 /* 相互注册（点对点）响应包，说明可直连，移到optional队列 */
-                traceEvent(TRACE_INFO, "set_peer_operational_lock.1.1：");
+                traceEvent(TRACE_NORMAL, "set_peer_operational_lock.1.1：");
                 if (lockOne(&pkg->eee->mt_queue->lock4UpdatePeer) == 0) {
                     set_peer_operational(eee, hdr);
-                    traceEvent(TRACE_INFO, "set_peer_operational_lock.1.2：");
+                    traceEvent(TRACE_NORMAL, "set_peer_operational_lock.1.2：");
                     releaseOne(&pkg->eee->mt_queue->lock4UpdatePeer);
-                    traceEvent(TRACE_INFO, "set_peer_operational_lock.1.3：");
+                    traceEvent(TRACE_NORMAL, "set_peer_operational_lock.1.3：");
                 }
                 else {
-                    traceEvent(TRACE_INFO, "set_peer_operational_lock.1.4：");
+                    traceEvent(TRACE_NORMAL, "set_peer_operational_lock.1.4：");
                 }
             }
         }
