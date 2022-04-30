@@ -57,8 +57,8 @@ struct n2n_edge
   int                 allow_routing /*= 0*/;
   int                 drop_ipv6_ndp /*= 0*/;
   char *              encrypt_key /* = NULL*/;
-  TWOFISH *           enc_tf;
-  TWOFISH *           dec_tf;
+  TWOFISH *           enc_tf[16];
+  TWOFISH *           dec_tf[16];
 
   struct peer_info *  known_peers /* = NULL*/;
   struct peer_info *  pending_peers /* = NULL*/;
@@ -209,8 +209,10 @@ static int edge_init(n2n_edge_t * eee) {
   eee->allow_routing = 0;
   eee->drop_ipv6_ndp = 0;
   eee->encrypt_key   = NULL;
-  eee->enc_tf        = NULL;
-  eee->dec_tf        = NULL;
+  for (int i = 0; i < 16; i++) {
+      eee->enc_tf[i] = NULL;
+      eee->dec_tf[i] = NULL;
+  }
   eee->known_peers   = NULL;
   eee->pending_peers = NULL;
   eee->last_register = 0;
@@ -224,9 +226,10 @@ static int edge_init(n2n_edge_t * eee) {
 
 static int edge_init_twofish( n2n_edge_t * eee, u_int8_t *encrypt_pwd, u_int32_t encrypt_pwd_len )
 {
-  eee->enc_tf = TwoFishInit(encrypt_pwd, encrypt_pwd_len);
-  eee->dec_tf = TwoFishInit(encrypt_pwd, encrypt_pwd_len);
-
+    for (int i = 0; i < 16; i++) {
+        eee->enc_tf[i] = TwoFishInit(encrypt_pwd, encrypt_pwd_len);
+        eee->dec_tf[i] = TwoFishInit(encrypt_pwd, encrypt_pwd_len);
+    }
   if ( (eee->enc_tf) && (eee->dec_tf) )
     {
       return 0;
@@ -239,12 +242,14 @@ static int edge_init_twofish( n2n_edge_t * eee, u_int8_t *encrypt_pwd, u_int32_t
 
 /* ************************************** */
 
-static void edge_deinit(n2n_edge_t * eee) {
-  TwoFishDestroy(eee->enc_tf);
-  TwoFishDestroy(eee->dec_tf);
-  if ( eee->sinfo.sock >=0 )
+static void edge_deinit(n2n_edge_t* eee) {
+    for (int i = 0; i < 16; i++) {
+        TwoFishDestroy(eee->enc_tf[i]);
+        TwoFishDestroy(eee->dec_tf[i]);
+    }
+    if (eee->sinfo.sock >= 0)
     {
-      close( eee->sinfo.sock );
+        close(eee->sinfo.sock);
     }
 }
 
@@ -786,7 +791,7 @@ static const struct option long_options[] = {
 };
 
 /* ***************************************************** */
-
+static int seedtwofishEn = 0;
 
 /** A layer-2 packet was received at the tunnel and needs to be sent via UDP. */
 static void send_packet2net(n2n_edge_t* eee,
@@ -822,12 +827,16 @@ static void send_packet2net(n2n_edge_t* eee,
             }
         }
     }
+    //if (lockOne(&(eee->mt_queue->lock4UpdatePeer)) == 0) {
+        /* Encrypt "decrypted_msg" into the second half of the n2n packet. */
+    static long increseed;
 
-    /* Encrypt "decrypted_msg" into the second half of the n2n packet. */
+    int s = safeIncrement(&seedtwofishEn) % 16;
     len = TwoFishEncryptRaw((u_int8_t*)decrypted_msg,
-        (u_int8_t*)&packet[N2N_PKT_HDR_SIZE], len, eee->enc_tf);
-
-    /* Add the n2n header to the start of the n2n packet. */
+        (u_int8_t*)&packet[N2N_PKT_HDR_SIZE], len, eee->enc_tf[s]);
+    //   releaseOne(&(eee->mt_queue->lock4UpdatePeer));
+  // }
+   /* Add the n2n header to the start of the n2n packet. */
     fill_standard_header_fields(&(eee->sinfo), &hdr, (char*)(eee->device.mac_addr));
     hdr.msg_type = MSG_TYPE_PACKET;
     hdr.sent_by_supernode = 0;
@@ -847,14 +856,16 @@ static void send_packet2net(n2n_edge_t* eee,
         traceEvent(TRACE_INFO, "   Going via supernode [src_mac=%s][dst_mac=%s]",
             macaddr_str((char*)eh->ether_shost, mac_buf, sizeof(mac_buf)),
             macaddr_str((char*)eh->ether_dhost, mac2_buf, sizeof(mac2_buf)));
+
     //if (lockOne(&(eee->mt_queue->lock4send)) == 0) {
-        data_sent_len = reliable_sendto(&(eee->sinfo), packet, &len, &destination,
-            N2N_COMPRESSION_ENABLED);
-      //  releaseOne(&(eee->mt_queue->lock4send));
-    //}
-   // else {
-  //      data_sent_len = 0;
-  //  }
+    data_sent_len = reliable_sendto(&(eee->sinfo), packet, &len, &destination,
+        N2N_COMPRESSION_ENABLED);
+
+    //  releaseOne(&(eee->mt_queue->lock4send));
+  //}
+ // else {
+//      data_sent_len = 0;
+//  }
 
     if (data_sent_len != len)
         traceEvent(TRACE_WARNING, "sendto() [sent=%d][attempted_to_send=%d] [%s]\n",
@@ -1081,6 +1092,8 @@ void readFromIPSocket(n2n_edge_t* eee)
     free(pkg);
 }
 
+static int seedtwofishDe = 0;
+
 static void send_package2tapQ(recving_pkg pkg) {
     if (pkg == NULL) {
         return;
@@ -1096,11 +1109,11 @@ static void send_package2tapQ(recving_pkg pkg) {
         /* assert: the packet received is destined for device.mac_addr or broadcast MAC. */
         /* 数据包，先解密，再检查包是否合格，再检查对端节点是否存在，不存在则相互注册，再写入tab/tun结束*/
         len -= N2N_PKT_HDR_SIZE;
-
+        int seed = safeIncrement(&seedtwofishDe) % 16;
         /* Decrypt message first */
         /* 解密*/
         len = TwoFishDecryptRaw((u_int8_t*)&pkg->packet[N2N_PKT_HDR_SIZE],
-            (u_int8_t*)decrypted_msg, len, eee->dec_tf);
+            (u_int8_t*)decrypted_msg, len, eee->dec_tf[seed]);
 
         if (len > 0) {
             if (check_received_packet(eee, decrypted_msg, len) == 0) {
@@ -1112,10 +1125,10 @@ static void send_package2tapQ(recving_pkg pkg) {
 
                 /*数据包写入tab/tun*/
                 data_sent_len = 0;
-                if (lockOne(&(eee->mt_queue->lock4send)) == 0) {
-                    data_sent_len = tuntap_write(&(eee->device), (u_char*)decrypted_msg, len);
-                    releaseOne(&(eee->mt_queue->lock4send));
-                }
+                // if (lockOne(&(eee->mt_queue->lock4send)) == 0) {
+                data_sent_len = tuntap_write(&(eee->device), (u_char*)decrypted_msg, len);
+                //   releaseOne(&(eee->mt_queue->lock4send));
+              // }
 
                 if (data_sent_len != len)
                     traceEvent(TRACE_WARNING, "tuntap_write() [sent=%d][attempted_to_send=%d] [%s]\n",
@@ -1129,6 +1142,7 @@ static void send_package2tapQ(recving_pkg pkg) {
                 traceEvent(TRACE_WARNING, "Bad destination: message discarded");
             }
         }
+
         /* else silently ignore empty packet. */
 
     }
@@ -1175,6 +1189,7 @@ static void send_package2tapQ(recving_pkg pkg) {
         //return;
     }
     free(pkg);
+
 }
 
 
