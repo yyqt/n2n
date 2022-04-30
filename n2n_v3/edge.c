@@ -388,7 +388,7 @@ void try_send_register(n2n_edge_t* eee,
     if (NULL == scan)
     {
         traceEvent(TRACE_NORMAL, "try_send_register.lock.1.0£º");
-        if (lockOne(&queue->lock4Queue) == 0) {
+        if (lockOne(&queue->lock4UpdatePeer) == 0) {
             traceEvent(TRACE_NORMAL, "try_send_register.lock.1.1£º");
             scan = find_peer_by_mac(eee->pending_peers, hdr->src_mac);
             if (NULL == scan) {
@@ -414,7 +414,7 @@ void try_send_register(n2n_edge_t* eee,
                 /* pending_peers now owns scan. */
             }
             traceEvent(TRACE_NORMAL, "try_send_register.lock.1.3");
-            int  dd= releaseOne(&queue->lock4Queue);
+            int  dd= releaseOne(&queue->lock4UpdatePeer);
             traceEvent(TRACE_NORMAL, "try_send_register.lock.1.4,rt=%d", dd);
         }
         else {
@@ -428,7 +428,7 @@ void try_send_register(n2n_edge_t* eee,
         if (0 == hdr->sent_by_supernode)
         {
             traceEvent(TRACE_NORMAL, "try_send_register.lock.2.0£º");
-            if (lockOne(&(eee->mt_queue->lock4Queue)) == 0) {
+            if (lockOne(&(eee->mt_queue->lock4UpdatePeer)) == 0) {
                 traceEvent(TRACE_NORMAL, "try_send_register.lock.2.1£º");
                 if (0 == hdr->sent_by_supernode)
                 {
@@ -444,14 +444,14 @@ void try_send_register(n2n_edge_t* eee,
                         &(scan->public_ip),
                         0 /* is not ACK */);
                 }
-                releaseOne(&(eee->mt_queue->lock4Queue));
+                releaseOne(&(eee->mt_queue->lock4UpdatePeer));
             }
             else {
                 traceEvent(TRACE_NORMAL, "try_send_register.lock.2.2£º");
             }
         }
         else if (scan->regcount > 0 && scan->regcount < 3 && (time(NULL) - scan->last_seen) > scan->regcount) {
-            if (lockOne(&(eee->mt_queue->lock4Queue)) == 0) {
+            if (lockOne(&(eee->mt_queue->lock4UpdatePeer)) == 0) {
                 if (scan->regcount > 0 && scan->regcount < 3 && (time(NULL) - scan->last_seen) > scan->regcount) {
                     scan->regcount = scan->regcount + 1;
 
@@ -463,7 +463,7 @@ void try_send_register(n2n_edge_t* eee,
                         &(scan->public_ip),
                         0 /* is not ACK */);
                 }
-                releaseOne(&(eee->mt_queue->lock4Queue));
+                releaseOne(&(eee->mt_queue->lock4UpdatePeer));
             }
         }
     }
