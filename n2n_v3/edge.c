@@ -1111,7 +1111,11 @@ static void send_package2tapQ(recving_pkg pkg) {
                 }
 
                 /*数据包写入tab/tun*/
-                data_sent_len = tuntap_write(&(eee->device), (u_char*)decrypted_msg, len);
+                data_sent_len = 0;
+                if (lockOne(&(eee->mt_queue->lock4send)) == 0) {
+                    data_sent_len = tuntap_write(&(eee->device), (u_char*)decrypted_msg, len);
+                    releaseOne(&(eee->mt_queue->lock4send));
+                }
 
                 if (data_sent_len != len)
                     traceEvent(TRACE_WARNING, "tuntap_write() [sent=%d][attempted_to_send=%d] [%s]\n",
@@ -1286,7 +1290,7 @@ int main(int argc, char* argv[]) {
   int     i, effectiveargc=0;
   char ** effectiveargv=NULL;
   char  * linebuffer = NULL;
-  int threadcount = 2; //默认线程数
+  int threadcount = 1; //默认线程数
   n2n_edge_t eee; /* single instance for this program */
 
   if (-1 == edge_init(&eee) ){
