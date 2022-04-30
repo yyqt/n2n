@@ -294,6 +294,7 @@ static void help() {
   printf("-M <mtu>                 | Specify n2n MTU (default %d)\n", DEFAULT_MTU);
   printf("-t                       | Use http tunneling (experimental)\n");
   printf("-r                       | Enable packet forwarding through n2n community\n");
+  printf("-x                       | Threads default at 2\n");
   printf("-v                       | Verbose\n");
 
   printf("\nEnvironment variables:\n");
@@ -1319,7 +1320,7 @@ effectiveargv[effectiveargc] = 0;
   /* {int k;for(k=0;k<effectiveargc;++k)  printf("%s\n",effectiveargv[k]);} */
 
   optarg = NULL;
-  while((opt = getopt_long(effectiveargc, effectiveargv, "k:a:bc:u:g:m:M:s:d:l:p:fvhrt", long_options, NULL)) != EOF) {
+  while((opt = getopt_long(effectiveargc, effectiveargv, "k:a:bc:u:g:m:M:s:d:l:p:fvhrt:x", long_options, NULL)) != EOF) {
     switch (opt) {
     case 'a':
 		  printf("%s\n", optarg);
@@ -1363,6 +1364,9 @@ effectiveargv[effectiveargc] = 0;
       break;
     case 'r': /* enable packet routing across n2n endpoints */
       eee.allow_routing = 1;
+      break;
+    case 'x':
+        threadcount = atoi(optarg);
       break;
     case 'l': /* supernode-list */
       snprintf(eee.supernode_ip, sizeof(eee.supernode_ip), "%s", optarg);
