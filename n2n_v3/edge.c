@@ -1125,9 +1125,9 @@ static void send_package2tapQ(recving_pkg pkg) {
 
                 /*数据包写入tab/tun*/
                 data_sent_len = 0;
-                if (lockOne(&(eee->mt_queue->lock4recv)) == 0) {
+                if (lockOne(&(eee->mt_queue->lock4send)) == 0) {
                     data_sent_len = tuntap_write(&(eee->device), (u_char*)decrypted_msg, len);
-                    releaseOne(&(eee->mt_queue->lock4recv));
+                    releaseOne(&(eee->mt_queue->lock4send));
                 }
 
                 if (data_sent_len != len)
