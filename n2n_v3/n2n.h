@@ -73,7 +73,16 @@
 
 #include <syslog.h>
 #include <sys/wait.h>
-#include <net/ethernet.h>
+
+struct ether_header
+{
+uint8_t ether_dhost[ETH_ALEN];      // destination eth addr 
+uint8_t ether_shost[ETH_ALEN];      // source ether addr    
+uint16_t ether_type;                 // packet type ID field 
+} __attribute__ ((__packed__));
+
+/*#include <net/ethernet.h>*/
+#include <linux/if_ether.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <netinet/udp.h>
