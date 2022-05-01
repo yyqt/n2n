@@ -6,7 +6,7 @@
 #include "sendqueue.h"
 #include <pthread.h>
 #include <semaphore.h>
-#include <windows.h>
+//#include <windows.h>
 
 #ifndef WIN32
 #include <asm/atomic.h>
