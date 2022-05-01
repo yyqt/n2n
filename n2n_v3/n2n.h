@@ -122,7 +122,7 @@ typedef struct tuntap_dev {
 #endif /* #ifndef WIN32 */
 
 #define QUICKLZ               1
-#define N2N_PKT_VERSION       15
+#define N2N_PKT_VERSION       1
 
 #define MSG_TYPE_REGISTER     1 /* FIX invece di usare il sender del pacchetto scriverlo nel pacchetto stesso */
 #define MSG_TYPE_DEREGISTER   2
@@ -137,7 +137,7 @@ typedef struct tuntap_dev {
  * frames. Doing this will break compatibility with the standard n2n packet
  * format so do it only for experimentation. All edges must be built with the
  * same value if they are to understand each other. */
-#define N2N_COMPRESSION_ENABLED 0
+#define N2N_COMPRESSION_ENABLED 1
 
 #define DEFAULT_MTU   1400
 
