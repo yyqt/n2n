@@ -8,7 +8,7 @@
 //#include <windows.h>
 
 #ifndef WIN32
-#include <asm/atomic.h>
+#include <stdatomic.h>
 #else
 #include <winnt.h>
 #endif
@@ -27,7 +27,7 @@ long safeDecrement(long* num)
 #ifdef WIN32
 	return InterlockedDecrement(num);
 #else
-	return atomic_add_return(num, -1) - 1;
+	return atomic_fetch_add(num, -1) - 1;
 #endif
 }
 sem_t sem;
