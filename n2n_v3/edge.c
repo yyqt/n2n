@@ -26,11 +26,11 @@
 #include "n2n.h"
 #include <assert.h>
 #include <sys/stat.h>
-#ifdef Windows
-//#include <semaphore.h>
-#else
-#include <Windows.h>
-#endif // Windows
+//#ifndef Windows
+////#include <semaphore.h>
+//#else
+//#include <Windows.h>
+//#endif // Windows
 #include "sendqueue.h"
 
 /** Time between logging system STATUS messages */
