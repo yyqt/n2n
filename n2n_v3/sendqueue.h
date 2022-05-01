@@ -7,7 +7,7 @@
 #include "n2n.h"
 #include <pthread.h>
 #include <semaphore.h>
-#define BUFFERLEN 512
+#define BUFFERLEN 256
 
 typedef struct queueItem
 {

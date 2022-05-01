@@ -76,7 +76,7 @@ multiThreadQueue_t createQueue() {
 	mutex->lock4CheckPeer = PTHREAD_MUTEX_INITIALIZER;
 	mutex->lock4UpdatePeer= PTHREAD_MUTEX_INITIALIZER;*/
 	sem_init(&mutex->semiToConsume, 0, 0);
-	sem_init(&mutex->semiToProduce, 0, BUFFERLEN-1);
+	sem_init(&mutex->semiToProduce, 0, BUFFERLEN - 2);
 	//printf("queue created");
 	return mutex;
 }
