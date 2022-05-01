@@ -1,8 +1,7 @@
 #pragma once
-#pragma comment(lib,"libpthread.lib")
-
 #ifdef WIN32
 #define HAVE_STRUCT_TIMESPEC
+#pragma comment(lib,"libpthread.lib")
 #endif
 #include "n2n.h"
 #include <pthread.h>

@@ -1,6 +1,5 @@
-#pragma comment(lib,"libpthread.lib")
-
 #ifdef WIN32
+#pragma comment(lib,"libpthread.lib")
 #define HAVE_STRUCT_TIMESPEC
 #endif
 #include "sendqueue.h"
@@ -19,7 +18,7 @@ long safeIncrement(long* num)
 #ifdef WIN32
 	return InterlockedIncrement(num);
 #else
-	return atomic_add_return(1, num);
+	return atomic_fetch_add(num, 1) + 1;
 #endif
 }
 
@@ -28,7 +27,7 @@ long safeDecrement(long* num)
 #ifdef WIN32
 	return InterlockedDecrement(num);
 #else
-	return atomic_add_return(-1, num);
+	return atomic_add_return(num, -1) - 1;
 #endif
 }
 sem_t sem;
@@ -53,8 +52,10 @@ void t() {
 	dequeue(queue);
 	printf("dequeued\r\n");
 	long t1 = 0;
-	safeIncrement(&t1);
-	printf("safeIncreasment %d\r\n", t1);
+	long s= safeIncrement(&t1);
+	printf("safeIncreasment %d %d\r\n", t1, s);
+	s = safeIncrement(&t1);
+	printf("safeIncreasment %d %d\r\n", t1, s);
 }
 
 void* proc(void* arg) {
