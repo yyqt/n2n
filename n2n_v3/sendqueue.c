@@ -46,16 +46,15 @@ void t() {
 	printf("post2 start\r\n");
 	sem_post(&sem);
 	printf("post2 over\r\n");*/
-	printf("queue creating\r\n");
+	printf("test queue creating\r\n");
 	multiThreadQueue_t  queue = createQueue();
-	startConsumers(queue, 2);
-	Sleep(2000);
 	enqueue(queue, NULL, 1);
-	Sleep(2000);
-	enqueue(queue, NULL, 2);
-	Sleep(2000);
-	enqueue(queue, NULL, 3);
-	Sleep(2000);
+	printf("enqueued\r\n");
+	dequeue(queue);
+	printf("dequeued\r\n");
+	long t1 = 0;
+	safeIncrement(&t1);
+	printf("safeIncreasment %d\r\n", t1);
 }
 
 void* proc(void* arg) {
