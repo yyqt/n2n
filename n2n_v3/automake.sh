@@ -21,7 +21,7 @@ NAME=linux_aarch64_8
 mkdir -p ./outs/$NAME
 cp ./Makefile ./Makefile_tmp
 make clean
-sed -i 's/CC=gcc/CC=\/data\/n2n\/gcc-arm-8.3-2019.03-x86_64-aarch64-linux-gnu\/bin\/aarch64-none-linux-gnu-gcc/g' ./Makefile_tmp
+sed -i 's/CC=gcc/CC=\/data\/n2n\/gcc-arm-8.3-2019.03-x86_64-aarch64-linux-gnu\/bin\/aarch64-linux-gnu-cpp/g' ./Makefile_tmp
 make -f ./Makefile_tmp
 cp ./edge ./outs/$NAME/edge
 cp ./supernode ./outs/$NAME/supernode
