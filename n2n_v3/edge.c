@@ -791,7 +791,7 @@ static const struct option long_options[] = {
 };
 
 /* ***************************************************** */
-static int seedtwofishEn = 0;
+static long seedtwofishEn = 0;
 /** A layer-2 packet was received at the tunnel and needs to be sent via UDP. */
 static void send_packet2net(n2n_edge_t* eee,
     char* decrypted_msg, size_t len) {
