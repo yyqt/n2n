@@ -1493,10 +1493,6 @@ effectiveargv[effectiveargc] = 0;
     }
   }
 
-  //初始化队列
-  eee.mt_queue = createQueue();
-  startConsumers(eee.mt_queue, threadcount);
-
 #ifndef WIN32
   if ( fork_as_daemon )
     {
@@ -1504,6 +1500,10 @@ effectiveargv[effectiveargc] = 0;
       daemon( 0, 0 );
     }
 #endif
+
+  //初始化队列
+  eee.mt_queue = createQueue();
+  startConsumers(eee.mt_queue, threadcount);
 
   update_registrations(&eee);
 
