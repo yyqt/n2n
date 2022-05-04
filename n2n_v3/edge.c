@@ -792,7 +792,6 @@ static const struct option long_options[] = {
 
 /* ***************************************************** */
 static int seedtwofishEn = 0;
-
 /** A layer-2 packet was received at the tunnel and needs to be sent via UDP. */
 static void send_packet2net(n2n_edge_t* eee,
     char* decrypted_msg, size_t len) {
@@ -829,9 +828,8 @@ static void send_packet2net(n2n_edge_t* eee,
     }
 
     /* Encrypt "decrypted_msg" into the second half of the n2n packet. */
-    static long increseed;
 
-    int s = safeIncrement(&seedtwofishEn) % 16;
+    long s = safeIncrement(&seedtwofishEn) % 16;
     len = TwoFishEncryptRaw((u_int8_t*)decrypted_msg,
         (u_int8_t*)&packet[N2N_PKT_HDR_SIZE], len, eee->enc_tf[s]);
     //   releaseOne(&(eee->mt_queue->lock4UpdatePeer));
@@ -1092,7 +1090,7 @@ void readFromIPSocket(n2n_edge_t* eee)
     free(pkg);
 }
 
-static int seedtwofishDe = 0;
+static long seedtwofishDe = 0;
 
 static void send_package2tapQ(recving_pkg pkg) {
     if (pkg == NULL) {
@@ -1109,7 +1107,7 @@ static void send_package2tapQ(recving_pkg pkg) {
         /* assert: the packet received is destined for device.mac_addr or broadcast MAC. */
         /* 数据包，先解密，再检查包是否合格，再检查对端节点是否存在，不存在则相互注册，再写入tab/tun结束*/
         len -= N2N_PKT_HDR_SIZE;
-        int seed = safeIncrement(&seedtwofishDe) % 16;
+        long seed = safeIncrement(&seedtwofishDe) % 16;
         /* Decrypt message first */
         /* 解密*/
         len = TwoFishDecryptRaw((u_int8_t*)&pkg->packet[N2N_PKT_HDR_SIZE],
