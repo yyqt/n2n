@@ -91,7 +91,7 @@ void enqueue(multiThreadQueue_t queue, char* data, u_int8_t type) {
 			curridx = curridx % BUFFERLEN;
 			queue->datalist[curridx] = s;
 			pthread_mutex_unlock(&queue->lock4Queue);
-			traceEvent(TRACE_INFO, "入队列：%d，index=%d\r\n", s.type, curridx);
+			traceEvent(TRACE_INFO, "enqueue：%d，index=%d\r\n", s.type, curridx);
 			sem_post(&queue->semiToConsume);
 		}
 		else {
@@ -111,7 +111,7 @@ queueItem_t dequeue(multiThreadQueue_t queue) {
 			queueItem_t s = queue->datalist[curridx];
 			pthread_mutex_unlock(&queue->lock4Queue);
 			sem_post(&queue->semiToProduce);
-			traceEvent(TRACE_INFO, "出队列：%d,index=%d\r\n", s.type, curridx);
+			traceEvent(TRACE_INFO, "dequeue：%d,index=%d\r\n", s.type, curridx);
 			return s;
 		}
 	}
@@ -122,8 +122,9 @@ queueItem_t dequeue(multiThreadQueue_t queue) {
 }
 static long threadcc = 0;
 void sendproc(multiThreadQueue_t queue) {
+	traceEvent(TRACE_NORMAL, "sendproc thread starting\r\n");
 	long threadid = safeIncrement(&threadcc);
-	traceEvent(TRACE_NORMAL, "sendproc线程%d启动\r\n", threadid);
+	traceEvent(TRACE_NORMAL, "sendproc thread %d started\r\n", threadid);
 	while (queue->state != 2) {
 		queueItem_t item = dequeue(queue); //消息
 		if (item.data == NULL) {
@@ -148,13 +149,15 @@ void sendproc(multiThreadQueue_t queue) {
 			break;
 		}
 	}
-	traceEvent(TRACE_NORMAL, "sendproc线程%d退出\r\n", threadid);
+	traceEvent(TRACE_NORMAL, "sendproc thread %d exited\r\n", threadid);
 }
 
 void startConsumers(multiThreadQueue_t queue, int threadcount) {
 	for (int i = 0; i < threadcount; i++) {
 		pthread_t p1;
+		traceEvent(TRACE_NORMAL, "sendproc thread %d creating\r\n", i + 1);
 		pthread_create(&p1, NULL, sendproc, queue);
+		traceEvent(TRACE_NORMAL, "sendproc thread %d created\r\n", i + 1);
 	}
 }
 
