@@ -788,18 +788,18 @@ void print_n2n_version() {
  *
  *  @return NULL if not found; otherwise pointer to peer entry.
  */
-struct peer_info * find_peer_by_mac( struct peer_info * list, const char * mac )
+struct peer_info* find_peer_by_mac(struct peer_info* list, const char* mac)
 {
-  while(list != NULL)
+    while (list != NULL)
     {
-      if( 0 == memcmp(mac, list->mac_addr, 6) )
+        if (0 == memcmp(mac, list->mac_addr, 6))
         {
-	  return list;
+            return list;
         }
-      list = list->next;
+        list = list->next;
     }
 
-  return NULL;
+    return NULL;
 }
 
 

@@ -92,6 +92,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\edge.c" />
+    <ClCompile Include="..\..\list.c" />
     <ClCompile Include="..\..\minilzo.c" />
     <ClCompile Include="..\..\n2n.c" />
     <ClCompile Include="..\..\sendqueue.c" />
@@ -102,6 +103,7 @@
     <ClCompile Include="..\version-msvc.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\list.h" />
     <ClInclude Include="..\..\lzoconf.h" />
     <ClInclude Include="..\..\lzodefs.h" />
     <ClInclude Include="..\..\minilzo.h" />

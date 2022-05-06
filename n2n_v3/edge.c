@@ -32,7 +32,7 @@
 //#include <Windows.h>
 //#endif // Windows
 #include "sendqueue.h"
-
+#include "list.h"
 /** Time between logging system STATUS messages */
 #define STATUS_UPDATE_INTERVAL (30 * 60) /*secs*/
 
@@ -304,6 +304,7 @@ static void help() {
   printf("\nEnvironment variables:\n");
   printf("  N2N_KEY                | Encryption key (ASCII)\n" );
   t();
+  list_test();
   exit(0);
 }
 
