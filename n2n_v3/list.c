@@ -137,11 +137,18 @@ int list_indexOf2(list_t list, void* data, int startOffset, int endOffset) {
 	int mid = (startOffset + endOffset) / 2;
 	int c = list->comparer(data, list->data[mid]);
 	if (c < 0) {
-
-		return list_indexOf2(list, data, startOffset + 1, mid);
+		// data < mid && data > startoffset
+		if (mid <= startOffset + 1) {
+			return mid;
+		}
+		return list_indexOf2(list, data, startOffset + 1, mid - 1);
 	}
 	else if (c > 0) {
-		return list_indexOf2(list, data, mid + 1, endOffset);
+		//data > mid && data < endoffset
+		if (mid + 1 >= endOffset) {
+			return mid + 1;
+		}
+		return list_indexOf2(list, data, mid + 1, endOffset - 1);
 	}
 	else {
 		return mid;
@@ -174,20 +181,20 @@ void list_test() {
 	int d5 = 7;
 	printf("list created \r\n");
 	list_add(list, &d1);
-	printf("list added 1 \r\n");
-	for (int i = 0; i < list->used; i++) {
-		printf("list[%d]=%d data=%d\r\n", i, list_get(list, i), *((int*)list_get(list, i)));
-	}
+	//printf("list added 1 \r\n");
+	//for (int i = 0; i < list->used; i++) {
+	//	printf("list[%d]=%d data=%d\r\n", i, list_get(list, i), *((int*)list_get(list, i)));
+	//}
 	list_add(list, &d2);
-	printf("list added 2 \r\n");
-	for (int i = 0; i < list->used; i++) {
-		printf("list[%d]=%d data=%d\r\n", i, list_get(list, i), *((int*)list_get(list, i)));
-	}
+	//printf("list added 2 \r\n");
+	//for (int i = 0; i < list->used; i++) {
+	//	printf("list[%d]=%d data=%d\r\n", i, list_get(list, i), *((int*)list_get(list, i)));
+	//}
 	list_add(list, &d3);
-	printf("list added 3 \r\n");
-	for (int i = 0; i < list->used; i++) {
-		printf("list[%d]=%d data=%d\r\n", i, list_get(list, i), *((int*)list_get(list, i)));
-	}
+	//printf("list added 3 \r\n");
+	//for (int i = 0; i < list->used; i++) {
+	//	printf("list[%d]=%d data=%d\r\n", i, list_get(list, i), *((int*)list_get(list, i)));
+	//}
 	list_add(list, &d4);
 	printf("list added \r\n");
 	for (int i = 0; i < list->used; i++) {
@@ -196,12 +203,12 @@ void list_test() {
 	int idx = list_indexOf(list, &d3);
 	printf("find index = %d,dt=%d \r\n", idx, *((int*)list_get(list, idx)));
 
-	idx = list_indexOf(list, &d1);
+	/*idx = list_indexOf(list, &d1);
 	printf("find index = %d,dt=%d \r\n", idx, *((int*)list_get(list, idx)));
 	idx = list_indexOf(list, &d2);
 	printf("find index = %d,dt=%d \r\n", idx, *((int*)list_get(list, idx)));
 	idx = list_indexOf(list, &d4);
-	printf("find index = %d,dt=%d \r\n", idx, *((int*)list_get(list, idx)));
+	printf("find index = %d,dt=%d \r\n", idx, *((int*)list_get(list, idx)));*/
 	idx = list_indexOf(list, &d5);
 	printf("find index = %d \r\n", idx);
 
