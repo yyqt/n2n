@@ -75,171 +75,174 @@ static void send_packet2net(n2n_edge_t * eee,
 /* ************************************** */
 
 /* parse the configuration file */
-static int readConfFile(const char * filename, char * const linebuffer) {
-  struct stat stats;
-  FILE    *   fd;
-  char    *   buffer = NULL;
+static int readConfFile(const char* filename, char* const linebuffer) {
+    struct stat stats;
+    FILE* fd;
+    char* buffer = NULL;
 
-  buffer = (char *)malloc(MAX_CONFFILE_LINE_LENGTH);
-  if (!buffer) {
-    traceEvent( TRACE_ERROR, "Unable to allocate memory");
-    return -1;
-  }
-
-  if (stat(filename, &stats)) {
-    if (errno == ENOENT)
-      traceEvent(TRACE_ERROR, "parameter file %s not found/unable to access\n", filename);
-    else
-      traceEvent(TRACE_ERROR, "cannot stat file %s, errno=%d\n",filename, errno);
-    free(buffer);
-    return -1;
-  }
-
-  fd = fopen(filename, "rb");
-  if (!fd) {
-    traceEvent(TRACE_ERROR, "Unable to open parameter file '%s' (%d)...\n",filename,errno);
-    free(buffer);
-    return -1;
-  }
-  while(fgets(buffer, MAX_CONFFILE_LINE_LENGTH,fd)) {
-    char    *   p = NULL;
-
-    /* strip out comments */
-    p = strchr(buffer, '#');
-    if (p) *p ='\0';
-
-    /* remove \n */
-    p = strchr(buffer, '\n');
-    if (p) *p ='\0';
-
-    /* strip out heading spaces */
-    p = buffer;
-    while(*p == ' ' && *p != '\0') ++p;
-    if (p != buffer) strncpy(buffer,p,strlen(p)+1);
-
-    /* strip out trailing spaces */
-    while(strlen(buffer) && buffer[strlen(buffer)-1]==' ')
-      buffer[strlen(buffer)-1]= '\0';
-
-    /* check for nested @file option */
-    if (strchr(buffer, '@')) {
-      traceEvent(TRACE_ERROR, "@file in file nesting is not supported\n");
-      free(buffer);
-      return -1;
+    buffer = (char*)malloc(MAX_CONFFILE_LINE_LENGTH);
+    if (!buffer) {
+        traceEvent(TRACE_ERROR, "Unable to allocate memory");
+        return -1;
     }
-    if ((strlen(linebuffer)+strlen(buffer)+2)< MAX_CMDLINE_BUFFER_LENGTH) {
-      strncat(linebuffer, " ", 1);
-      strncat(linebuffer, buffer, strlen(buffer));
-    } else {
-      traceEvent(TRACE_ERROR, "too many argument");
-      free(buffer);
-      return -1;
+
+    if (stat(filename, &stats)) {
+        if (errno == ENOENT)
+            traceEvent(TRACE_ERROR, "parameter file %s not found/unable to access\n", filename);
+        else
+            traceEvent(TRACE_ERROR, "cannot stat file %s, errno=%d\n", filename, errno);
+        free(buffer);
+        return -1;
     }
-  }
 
-  free(buffer);
-  fclose(fd);
+    fd = fopen(filename, "rb");
+    if (!fd) {
+        traceEvent(TRACE_ERROR, "Unable to open parameter file '%s' (%d)...\n", filename, errno);
+        free(buffer);
+        return -1;
+    }
+    while (fgets(buffer, MAX_CONFFILE_LINE_LENGTH, fd)) {
+        char* p = NULL;
 
-  return 0;
+        /* strip out comments */
+        p = strchr(buffer, '#');
+        if (p) *p = '\0';
+
+        /* remove \n */
+        p = strchr(buffer, '\n');
+        if (p) *p = '\0';
+
+        /* strip out heading spaces */
+        p = buffer;
+        while (*p == ' ' && *p != '\0') ++p;
+        if (p != buffer) strncpy(buffer, p, strlen(p) + 1);
+
+        /* strip out trailing spaces */
+        while (strlen(buffer) && buffer[strlen(buffer) - 1] == ' ')
+            buffer[strlen(buffer) - 1] = '\0';
+
+        /* check for nested @file option */
+        if (strchr(buffer, '@')) {
+            traceEvent(TRACE_ERROR, "@file in file nesting is not supported\n");
+            free(buffer);
+            return -1;
+        }
+        if ((strlen(linebuffer) + strlen(buffer) + 2) < MAX_CMDLINE_BUFFER_LENGTH) {
+            strncat(linebuffer, " ", 1);
+            strncat(linebuffer, buffer, strlen(buffer));
+        }
+        else {
+            traceEvent(TRACE_ERROR, "too many argument");
+            free(buffer);
+            return -1;
+        }
+    }
+
+    free(buffer);
+    fclose(fd);
+
+    return 0;
 }
 
 /* Create the argv vector */
-static char ** buildargv(char * const linebuffer) {
-  const int  INITIAL_MAXARGC = 16;	/* Number of args + NULL in initial argv */
-  int     maxargc;
-  int     argc=0;
-  char ** argv;
-  char *  buffer, * buff;
+static char** buildargv(char* const linebuffer) {
+    const int  INITIAL_MAXARGC = 16;	/* Number of args + NULL in initial argv */
+    int     maxargc;
+    int     argc = 0;
+    char** argv;
+    char* buffer, * buff;
 
-  buffer = (char *)calloc(1, strlen(linebuffer)+2);
-  if (!buffer) {
-    traceEvent( TRACE_ERROR, "Unable to allocate memory");
-    return NULL;
-  }
-  strncpy(buffer, linebuffer,strlen(linebuffer));
-
-  maxargc = INITIAL_MAXARGC;
-  argv = (char **)malloc(maxargc * sizeof(char*));
-  if (argv == NULL) {
-    traceEvent( TRACE_ERROR, "Unable to allocate memory");
-    return NULL;
-  }
-  buff = buffer;
-  while(buff) {
-    char * p = strchr(buff,' ');
-    if (p) {
-      *p='\0';
-      argv[argc++] = strdup(buff);
-      while(*++p == ' ' && *p != '\0');
-      buff=p;
-      if (argc >= maxargc) {
-	maxargc *= 2;
-	argv = (char **)realloc(argv, maxargc * sizeof(char*));
-	if (argv == NULL) {
-	  traceEvent(TRACE_ERROR, "Unable to re-allocate memory");
-	  free(buffer);
-	  return NULL;
-	}
-      }
-    } else {
-      argv[argc++] = strdup(buff);
-      break;
+    buffer = (char*)calloc(1, strlen(linebuffer) + 2);
+    if (!buffer) {
+        traceEvent(TRACE_ERROR, "Unable to allocate memory");
+        return NULL;
     }
-  }
-  argv[argc] = NULL;
-  free(buffer);
-  return argv;
+    strncpy(buffer, linebuffer, strlen(linebuffer));
+
+    maxargc = INITIAL_MAXARGC;
+    argv = (char**)malloc(maxargc * sizeof(char*));
+    if (argv == NULL) {
+        traceEvent(TRACE_ERROR, "Unable to allocate memory");
+        return NULL;
+    }
+    buff = buffer;
+    while (buff) {
+        char* p = strchr(buff, ' ');
+        if (p) {
+            *p = '\0';
+            argv[argc++] = strdup(buff);
+            while (*++p == ' ' && *p != '\0');
+            buff = p;
+            if (argc >= maxargc) {
+                maxargc *= 2;
+                argv = (char**)realloc(argv, maxargc * sizeof(char*));
+                if (argv == NULL) {
+                    traceEvent(TRACE_ERROR, "Unable to re-allocate memory");
+                    free(buffer);
+                    return NULL;
+                }
+            }
+        }
+        else {
+            argv[argc++] = strdup(buff);
+            break;
+        }
+    }
+    argv[argc] = NULL;
+    free(buffer);
+    return argv;
 }
 
-static int peer_compare(struct peer_info* peer1, struct peer_info* peer2) {
-    return memcmp(peer1->mac_addr, peer2->mac_addr, 6);
+static int peer_compare(char* peer1, char* peer2) {
+    printf("peer_compare %d to %d", peer1, peer2);
+    return memcmp(peer1 + COMMUNITY_LEN, peer2 + COMMUNITY_LEN, 6);
 }
 
 
 /* ************************************** */
 
-static int edge_init(n2n_edge_t * eee) {
+static int edge_init(n2n_edge_t* eee) {
 #ifdef WIN32
-  initWin32();
+    initWin32();
 #endif
-  memset(eee, 0, sizeof(n2n_edge_t));
+    memset(eee, 0, sizeof(n2n_edge_t));
 
-  eee->re_resolve_supernode_ip = 0;
-  eee->community_name = NULL;
-  eee->sinfo.sock     = -1;
-  eee->sinfo.is_udp_socket = 1;
-  eee->pkt_sent      = 0;
-  eee->allow_routing = 0;
-  eee->drop_ipv6_ndp = 0;
-  eee->encrypt_key   = NULL;
-  for (int i = 0; i < 16; i++) {
-      eee->enc_tf[i] = NULL;
-      eee->dec_tf[i] = NULL;
-  }
-  eee->known_peers   = list_create(peer_compare);
-  eee->pending_peers = list_create(peer_compare);
-  eee->last_register = 0;
-  if(lzo_init() != LZO_E_OK) {
-    traceEvent(TRACE_ERROR, "LZO compression error");
-    return(-1);
-  }
+    eee->re_resolve_supernode_ip = 0;
+    eee->community_name = NULL;
+    eee->sinfo.sock = -1;
+    eee->sinfo.is_udp_socket = 1;
+    eee->pkt_sent = 0;
+    eee->allow_routing = 0;
+    eee->drop_ipv6_ndp = 0;
+    eee->encrypt_key = NULL;
+    for (int i = 0; i < 16; i++) {
+        eee->enc_tf[i] = NULL;
+        eee->dec_tf[i] = NULL;
+    }
+    eee->known_peers = list_create(peer_compare);
+    eee->pending_peers = list_create(peer_compare);
+    eee->last_register = 0;
+    if (lzo_init() != LZO_E_OK) {
+        traceEvent(TRACE_ERROR, "LZO compression error");
+        return(-1);
+    }
 
-  return(0);
+    return(0);
 }
 
-static int edge_init_twofish( n2n_edge_t * eee, u_int8_t *encrypt_pwd, u_int32_t encrypt_pwd_len )
+static int edge_init_twofish(n2n_edge_t* eee, u_int8_t* encrypt_pwd, u_int32_t encrypt_pwd_len)
 {
     for (int i = 0; i < 16; i++) {
         eee->enc_tf[i] = TwoFishInit(encrypt_pwd, encrypt_pwd_len);
         eee->dec_tf[i] = TwoFishInit(encrypt_pwd, encrypt_pwd_len);
     }
-  if ( (eee->enc_tf) && (eee->dec_tf) )
+    if ((eee->enc_tf) && (eee->dec_tf))
     {
-      return 0;
+        return 0;
     }
-  else
+    else
     {
-      return 1;
+        return 1;
     }
 }
 
@@ -259,97 +262,97 @@ static void edge_deinit(n2n_edge_t* eee) {
 static void readFromIPSocket( n2n_edge_t * eee );
 
 static void help() {
-  print_n2n_version();
+    print_n2n_version();
 
-  printf("edge "
+    printf("edge "
 #ifdef __linux__
-	 "-d <tun device> "
+        "-d <tun device> "
 #endif
-	 "-a <tun IP address> "
-	 "-c <community> "
-	 "-k <encrypt key> "
-	 "-s <netmask> "
+        "-a <tun IP address> "
+        "-c <community> "
+        "-k <encrypt key> "
+        "-s <netmask> "
 #ifndef WIN32
-	 "[-u <uid> -g <gid>]"
-	 "[-f]"
+        "[-u <uid> -g <gid>]"
+        "[-f]"
 #endif
-	 "[-m <MAC address>]"
-	 "\n"
-	 "-l <supernode host:port> "
-	 "[-p <local port>] [-M <mtu>] "
-	 "[-t] [-r] [-v] [-b] [-h]\n\n");
+        "[-m <MAC address>]"
+        "\n"
+        "-l <supernode host:port> "
+        "[-p <local port>] [-M <mtu>] "
+        "[-t] [-r] [-v] [-b] [-h]\n\n");
 
 #ifdef __linux__
-  printf("-d <tun device>          | tun device name\n");
+    printf("-d <tun device>          | tun device name\n");
 #endif
 
-  printf("-a <tun IP address>      | n2n IP address\n");
-  printf("-c <community>           | n2n community name\n");
-  printf("-k <encrypt key>         | Encryption key (ASCII) - also N2N_KEY=<encrypt key>\n");
-  printf("-s <netmask>             | Edge interface netmask in dotted decimal notation (255.255.255.0)\n");
-  printf("-l <supernode host:port> | Supernode IP:port\n");
-  printf("-b                       | Periodically resolve supernode IP\n");
-  printf("                         | (when supernodes are running on dynamic IPs)\n");
-  printf("-p <local port>          | Local port used for connecting to supernode\n");
+    printf("-a <tun IP address>      | n2n IP address\n");
+    printf("-c <community>           | n2n community name\n");
+    printf("-k <encrypt key>         | Encryption key (ASCII) - also N2N_KEY=<encrypt key>\n");
+    printf("-s <netmask>             | Edge interface netmask in dotted decimal notation (255.255.255.0)\n");
+    printf("-l <supernode host:port> | Supernode IP:port\n");
+    printf("-b                       | Periodically resolve supernode IP\n");
+    printf("                         | (when supernodes are running on dynamic IPs)\n");
+    printf("-p <local port>          | Local port used for connecting to supernode\n");
 #ifndef WIN32
-  printf("-u <UID>                 | User ID (numeric) to use when privileges are dropped\n");
-  printf("-g <GID>                 | Group ID (numeric) to use when privileges are dropped\n");
-  printf("-f                       | Fork and run as a daemon. Use syslog.\n");
+    printf("-u <UID>                 | User ID (numeric) to use when privileges are dropped\n");
+    printf("-g <GID>                 | Group ID (numeric) to use when privileges are dropped\n");
+    printf("-f                       | Fork and run as a daemon. Use syslog.\n");
 #endif
-  printf("-m <MAC address>         | Choose a MAC address for the TAP interface\n"
-         "                         | eg. -m 01:02:03:04:05:06\n");
-  printf("-M <mtu>                 | Specify n2n MTU (default %d)\n", DEFAULT_MTU);
-  printf("-t                       | Use http tunneling (experimental)\n");
-  printf("-r                       | Enable packet forwarding through n2n community\n");
-  printf("-x                       | Threads default at 2\n");
-  printf("-v                       | Verbose\n");
+    printf("-m <MAC address>         | Choose a MAC address for the TAP interface\n"
+        "                         | eg. -m 01:02:03:04:05:06\n");
+    printf("-M <mtu>                 | Specify n2n MTU (default %d)\n", DEFAULT_MTU);
+    printf("-t                       | Use http tunneling (experimental)\n");
+    printf("-r                       | Enable packet forwarding through n2n community\n");
+    printf("-x                       | Threads default at 2\n");
+    printf("-v                       | Verbose\n");
 
-  printf("\nEnvironment variables:\n");
-  printf("  N2N_KEY                | Encryption key (ASCII)\n" );
-  t();
-  list_test();
-  exit(0);
+    printf("\nEnvironment variables:\n");
+    printf("  N2N_KEY                | Encryption key (ASCII)\n");
+    t();
+    list_test();
+    exit(0);
 }
 
 /* *********************************************** */
 
-static void send_register( n2n_edge_t * eee,
-			   const struct peer_addr *remote_peer,
-			   u_char is_ack) {
-  struct n2n_packet_header hdr;
-  char pkt[N2N_PKT_HDR_SIZE];
-  size_t len = sizeof(hdr);
-  ipstr_t ip_buf;
+static void send_register(n2n_edge_t* eee,
+    const struct peer_addr* remote_peer,
+    u_char is_ack) {
+    struct n2n_packet_header hdr;
+    char pkt[N2N_PKT_HDR_SIZE];
+    size_t len = sizeof(hdr);
+    ipstr_t ip_buf;
 
-  fill_standard_header_fields( &(eee->sinfo), &hdr, (char*)(eee->device.mac_addr));
-  hdr.sent_by_supernode = 0;
-  hdr.msg_type = (is_ack == 0) ? MSG_TYPE_REGISTER : MSG_TYPE_REGISTER_ACK;
-  memcpy(hdr.community_name, eee->community_name, COMMUNITY_LEN);
+    fill_standard_header_fields(&(eee->sinfo), &hdr, (char*)(eee->device.mac_addr));
+    hdr.sent_by_supernode = 0;
+    hdr.msg_type = (is_ack == 0) ? MSG_TYPE_REGISTER : MSG_TYPE_REGISTER_ACK;
+    memcpy(hdr.community_name, eee->community_name, COMMUNITY_LEN);
 
-  marshall_n2n_packet_header( (u_int8_t *)pkt, &hdr );
-  send_packet( &(eee->sinfo), pkt, &len, remote_peer, N2N_COMPRESSION_ENABLED );
+    marshall_n2n_packet_header((u_int8_t*)pkt, &hdr);
+    send_packet(&(eee->sinfo), pkt, &len, remote_peer, N2N_COMPRESSION_ENABLED);
 
-  traceEvent(TRACE_INFO, "Sent %s message to %s:%hu",
-             ((hdr.msg_type==MSG_TYPE_REGISTER)?"MSG_TYPE_REGISTER":"MSG_TYPE_REGISTER_ACK"),
-	     intoa(ntohl(remote_peer->addr_type.v4_addr), ip_buf, sizeof(ip_buf)),
-	     ntohs(remote_peer->port));
+    traceEvent(TRACE_INFO, "Sent %s message to %s:%hu",
+        ((hdr.msg_type == MSG_TYPE_REGISTER) ? "MSG_TYPE_REGISTER" : "MSG_TYPE_REGISTER_ACK"),
+        intoa(ntohl(remote_peer->addr_type.v4_addr), ip_buf, sizeof(ip_buf)),
+        ntohs(remote_peer->port));
 }
 
 /* *********************************************** */
 
-static void send_deregister(n2n_edge_t * eee,
-			    struct peer_addr *remote_peer) {
-  struct n2n_packet_header hdr;
-  char pkt[N2N_PKT_HDR_SIZE];
-  size_t len = sizeof(hdr);
+static void send_deregister(n2n_edge_t* eee,
+    struct peer_addr* remote_peer) {
+    struct n2n_packet_header hdr;
+    char pkt[N2N_PKT_HDR_SIZE];
+    size_t len = sizeof(hdr);
 
-  fill_standard_header_fields( &(eee->sinfo), &hdr, (char*)(eee->device.mac_addr) );
-  hdr.sent_by_supernode = 0;
-  hdr.msg_type = MSG_TYPE_DEREGISTER;
-  memcpy(hdr.community_name, eee->community_name, COMMUNITY_LEN);
+    fill_standard_header_fields(&(eee->sinfo), &hdr, (char*)(eee->device.mac_addr));
+    hdr.sent_by_supernode = 0;
+    hdr.msg_type = MSG_TYPE_DEREGISTER;
+    memcpy(hdr.community_name, eee->community_name, COMMUNITY_LEN);
 
-  marshall_n2n_packet_header( (u_int8_t *)pkt, &hdr );
-  send_packet( &(eee->sinfo), pkt, &len, remote_peer, N2N_COMPRESSION_ENABLED);
+    marshall_n2n_packet_header((u_int8_t*)pkt, &hdr);
+    send_packet(&(eee->sinfo), pkt, &len, remote_peer, N2N_COMPRESSION_ENABLED);
 }
 
 /* *********************************************** */
@@ -402,7 +405,7 @@ void try_send_register(n2n_edge_t* eee,
                 scan->public_ip = hdr->public_ip;
                 scan->last_seen = time(NULL); /* Don't change this it marks the pending peer for removal. */
                 scan->regcount = 1;
-                peer_list_add(&(eee->pending_peers), scan);
+                peer_list_add(eee->pending_peers, scan);
 
                 traceEvent(TRACE_NORMAL, "Pending peers list size=%ld",
                     peer_list_size(eee->pending_peers));
@@ -418,7 +421,7 @@ void try_send_register(n2n_edge_t* eee,
                 /* pending_peers now owns scan. */
             }
             traceEvent(TRACE_NORMAL, "try_send_register.lock.1.3");
-            int  dd= releaseOne(&queue->lock4UpdatePeer);
+            int  dd = releaseOne(&queue->lock4UpdatePeer);
             traceEvent(TRACE_NORMAL, "try_send_register.lock.1.4,rt=%d", dd);
         }
         else {
@@ -476,20 +479,20 @@ void try_send_register(n2n_edge_t* eee,
 
 /** Update the last_seen time for this peer, or get registered. */
 /** 检查节点是否存在，如果存在，则更新通信时间，否则发送相互注册信号包 */
-void check_peer( n2n_edge_t * eee,
-                 const struct n2n_packet_header * hdr )
+void check_peer(n2n_edge_t* eee,
+    const struct n2n_packet_header* hdr)
 {
-  struct peer_info * scan = find_peer_by_mac( eee->known_peers, hdr->src_mac );
+    struct peer_info* scan = find_peer_by_mac(eee->known_peers, hdr->src_mac);
 
-  if ( NULL == scan )
+    if (NULL == scan)
     {
-      /* Not in known_peers - start the REGISTER process. */
-      try_send_register( eee, hdr );
+        /* Not in known_peers - start the REGISTER process. */
+        try_send_register(eee, hdr);
     }
-  else
+    else
     {
-      /* Already in known_peers. */
-      update_peer_address( eee, hdr, time(NULL) );
+        /* Already in known_peers. */
+        update_peer_address(eee, hdr, time(NULL));
     }
 }
 
@@ -597,6 +600,9 @@ static void update_peer_address(n2n_edge_t* eee,
         return;
     }
     int idx = list_indexOf(eee->known_peers, &hdr->dst_mac - COMMUNITY_LEN);
+    if (idx < 0) {
+        return;
+    }
     struct peer_info* scan = list_get(eee->known_peers, idx);// eee->known_peers;
 
     //while (scan != NULL)
@@ -1555,7 +1561,7 @@ effectiveargv[effectiveargc] = 0;
     update_registrations(&eee);
 
     //清理过期连接
-    numPurged =  purge_expired_registrations2( &(eee.known_peers),&(eee.pending_peers) );
+    numPurged =  purge_expired_registrations2( (eee.known_peers),(eee.pending_peers) );
     /*numPurged += purge_expired_registrations( &(eee.pending_peers) );*/
     if ( numPurged > 0 )
       {

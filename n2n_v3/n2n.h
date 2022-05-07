@@ -109,7 +109,7 @@ uint16_t ether_type;                 // packet type ID field
 #endif
 
 #include "twofish.h"
-
+#include "list.h"
 #ifndef WIN32
 typedef struct tuntap_dev {
   int           fd;
@@ -308,15 +308,11 @@ void print_n2n_version();
 
 
 /* Operations on peer_info lists. */
-struct peer_info * find_peer_by_mac( struct peer_info * list,
-                                     const char * mac );
-void   peer_list_add( struct peer_info * * list,
-                      struct peer_info * new );
-size_t peer_list_size( const struct peer_info * list );
-size_t purge_peer_list( struct peer_info ** peer_list, 
-                        time_t purge_before );
-size_t purge_expired_registrations( struct peer_info ** peer_list );
-size_t purge_expired_registrations2( struct peer_info ** peer_list ,struct peer_info ** peer_list2);
+struct peer_info* find_peer_by_mac(list_t list, const char* mac);
+void   peer_list_add(list_t list, struct peer_info* new);
+size_t peer_list_size(list_t list);
+size_t purge_peer_list(list_t peer_list, time_t purge_before);
+size_t purge_expired_registrations2(list_t peer_list, list_t peer_list2);
 /* version.c */
 extern char *version, *osName, *buildDate;
 

@@ -846,99 +846,98 @@ size_t purge_expired_registrations( struct peer_info ** peer_list ) {
   return num_reg;
 }
 
-size_t purge_expired_registrations2( struct peer_info ** peer_list ,struct peer_info ** peer_list2 ) {
-  static time_t last_purge = 0;
-  time_t now = time(NULL);
-  size_t num_reg = 0;
+size_t purge_expired_registrations2(list_t peer_list, list_t peer_list2) {
+    static time_t last_purge = 0;
+    time_t now = time(NULL);
+    size_t num_reg = 0;
 
-  if((now - last_purge) < PURGE_REGISTRATION_FREQUENCY) return 0;
+    if ((now - last_purge) < PURGE_REGISTRATION_FREQUENCY) return 0;
 
-  traceEvent(TRACE_INFO, "Purging old registrations");
+    traceEvent(TRACE_INFO, "Purging old registrations");
 
-  num_reg = purge_peer_list( peer_list, now-REGISTRATION_TIMEOUT );
-  num_reg += purge_peer_list( peer_list2, now-REGISTRATION_TIMEOUT );
-  last_purge = now;
-  traceEvent(TRACE_INFO, "Remove %ld registrations", num_reg);
+    num_reg = purge_peer_list(peer_list, now - REGISTRATION_TIMEOUT);
+    num_reg += purge_peer_list(peer_list2, now - REGISTRATION_TIMEOUT);
+    last_purge = now;
+    traceEvent(TRACE_INFO, "Remove %ld registrations", num_reg);
 
-  return num_reg;
+    return num_reg;
 }
 
 /** Purge old items from the peer_list and return the number of items that were removed. */
-size_t purge_peer_list( list_t peer_list,
-                        time_t purge_before )
+size_t purge_peer_list(list_t peer_list,
+    time_t purge_before)
 {
-  struct peer_info *scan;
-  struct peer_info *prev;
-  size_t retval=0;
+    struct peer_info* scan;
+    size_t retval = 0;
 
-  for (int i = 0; i < peer_list->count; i++) {
-      scan = list_get(peer_list, i);
-      if (scan->last_seen < purge_before) {
-          //todo remove
-          list_removeAt(peer_list, i);
-          i--;
-      }
-  }
-  return peer_list->count;
-  //scan = *peer_list;
-  //prev = NULL;
-  //while(scan != NULL)
-  //  {
-  //    if(scan->last_seen < purge_before)
-  //      {
-	 // struct peer_info *next = scan->next;
+    for (int i = 0; i < peer_list->count; i++) {
+        scan = list_get(peer_list, i);
+        if (scan->last_seen < purge_before) {
+            //todo remove
+            list_removeAt(peer_list, i);
+            i--;
+        }
+    }
+    return peer_list->count;
+    //scan = *peer_list;
+    //prev = NULL;
+    //while(scan != NULL)
+    //  {
+    //    if(scan->last_seen < purge_before)
+    //      {
+       // struct peer_info *next = scan->next;
 
-	 // if(prev == NULL)
-  //          {
-	 //     *peer_list = next;
-  //          }
-	 // else
-  //          {
-	 //     prev->next = next;
-  //          }
+       // if(prev == NULL)
+    //          {
+       //     *peer_list = next;
+    //          }
+       // else
+    //          {
+       //     prev->next = next;
+    //          }
 
-	 // ++retval;
-	 // free(scan);
-	 // scan = next;
-  //      }
-  //    else
-  //      {
-	 // prev = scan;
-	 // scan = scan->next;
-  //      }
-  //  }
+       // ++retval;
+       // free(scan);
+       // scan = next;
+    //      }
+    //    else
+    //      {
+       // prev = scan;
+       // scan = scan->next;
+    //      }
+    //  }
 
-  //return retval;
+    //return retval;
 }
 
-static u_int8_t hex2byte( const char * s )
+static u_int8_t hex2byte(const char* s)
 {
-  char tmp[3];
-  tmp[0]=s[0];
-  tmp[1]=s[1];
-  tmp[2]=0; /* NULL term */
+    char tmp[3];
+    tmp[0] = s[0];
+    tmp[1] = s[1];
+    tmp[2] = 0; /* NULL term */
 
-  return((u_int8_t)strtol( s, NULL, 16 ));
+    return((u_int8_t)strtol(s, NULL, 16));
 }
 
-extern int str2mac( u_int8_t * outmac /* 6 bytes */, const char * s )
+extern int str2mac(u_int8_t* outmac /* 6 bytes */, const char* s)
 {
-  size_t i;
+    size_t i;
 
-  /* break it down as one case for the first "HH", the 5 x through loop for
-   * each ":HH" where HH is a two hex nibbles in ASCII. */
+    /* break it down as one case for the first "HH", the 5 x through loop for
+     * each ":HH" where HH is a two hex nibbles in ASCII. */
 
-  *outmac=hex2byte(s);
-  ++outmac;
-  s+=2; /* don't skip colon yet - helps generalise loop. */
+    *outmac = hex2byte(s);
+    ++outmac;
+    s += 2; /* don't skip colon yet - helps generalise loop. */
 
-  for (i=1; i<6; ++i )
+    for (i = 1; i < 6; ++i)
     {
-      s+=1;
-      *outmac=hex2byte(s);
-      ++outmac;
-      s+=2;
+        s += 1;
+        *outmac = hex2byte(s);
+        ++outmac;
+        s += 2;
     }
 
-  return 0; /* ok */
+    return 0; /* ok */
 }

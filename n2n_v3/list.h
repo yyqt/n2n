@@ -1,6 +1,6 @@
 #pragma once
 
-#include "n2n.h"
+#include <stdio.h>
 
 typedef struct list_s {
 	unsigned int len;
