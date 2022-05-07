@@ -798,9 +798,7 @@ struct peer_info* find_peer_by_mac(list_t list, const char* mac)
     //    }
     //    list = list->next;
     //}
-    struct peer_info p;
-    memcpy(&p.mac_addr, mac, 6);
-    int idx = list_indexOf(list, &p);
+    int idx = list_indexOf(list, mac - COMMUNITY_LEN );
     if (idx >= 0) {
         return list_get(list, idx);
     }
