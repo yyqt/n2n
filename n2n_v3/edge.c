@@ -194,8 +194,7 @@ static char** buildargv(char* const linebuffer) {
 }
 
 static int peer_compare(char* peer1, char* peer2) {
-    //printf("peer_compare %d to %d", peer1, peer2);
-    return memcmp(peer1 + COMMUNITY_LEN, peer2 + COMMUNITY_LEN, 6);
+     return memcmp(peer1 + COMMUNITY_LEN, peer2 + COMMUNITY_LEN, 6);
 }
 
 
@@ -508,7 +507,16 @@ void set_peer_operational(n2n_edge_t* eee, const struct n2n_packet_header* hdr)
     struct peer_info* scan;
     macstr_t mac_buf;
     ipstr_t ip_buf;
-    int idx = list_indexOf(eee->pending_peers, &hdr->dst_mac - COMMUNITY_LEN);
+    traceEvent(TRACE_INFO, "=== set peer optional [mac=%s][socket=%s:%hu]",
+        macaddr_str(hdr->src_mac, mac_buf, sizeof(mac_buf)),
+        intoa(ntohl(hdr->public_ip.addr_type.v4_addr), ip_buf, sizeof(ip_buf)),
+        ntohs(hdr->public_ip.port));
+
+    int idx = list_indexOf(eee->pending_peers, (hdr->src_mac) - COMMUNITY_LEN);
+
+   // printf("set_peer_operational %X%X%X%X%X%X to %X%X%X%X%X%X \r\n", hdr->dst_mac[0], hdr->dst_mac[1], hdr->dst_mac[2], hdr->dst_mac[3], hdr->dst_mac[4], hdr->dst_mac[5], peer2[0], peer2[1], peer2[2], peer2[3], peer2[4], peer2[5]);
+
+
 
     if (idx >= 0)
     {
@@ -599,7 +607,7 @@ static void update_peer_address(n2n_edge_t* eee,
         /* Not to be registered. */
         return;
     }
-    int idx = list_indexOf(eee->known_peers, &hdr->dst_mac - COMMUNITY_LEN);
+    int idx = list_indexOf(eee->known_peers, hdr->dst_mac - COMMUNITY_LEN);
     if (idx < 0) {
         return;
     }
