@@ -180,7 +180,7 @@ void* list_removeAt(list_t list, int index) {
 		return NULL;
 	}
 	void* dt = list->data[index];
-	if (index < list->count - 1) {
+	if (index < list->count) {
 		void** temp = malloc(sizeof(void*) * list->count);
 		memcpy(temp, list->data, list->count * sizeof(void*));
 		memcpy(&(list->data)[index], &temp[index + 1], (list->count - index - 1) * sizeof(void*));
