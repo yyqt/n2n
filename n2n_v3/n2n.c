@@ -22,7 +22,7 @@
  */
 
 #include "n2n.h"
-
+#include "list.h"
 #include "minilzo.h"
 
 #include <assert.h>
@@ -788,17 +788,22 @@ void print_n2n_version() {
  *
  *  @return NULL if not found; otherwise pointer to peer entry.
  */
-struct peer_info* find_peer_by_mac(struct peer_info* list, const char* mac)
+struct peer_info* find_peer_by_mac(list_t list, const char* mac)
 {
-    while (list != NULL)
-    {
-        if (0 == memcmp(mac, list->mac_addr, 6))
-        {
-            return list;
-        }
-        list = list->next;
+    //while (list != NULL)
+    //{
+    //    if (0 == memcmp(mac, list->mac_addr, 6))
+    //    {
+    //        return list;
+    //    }
+    //    list = list->next;
+    //}
+    struct peer_info p;
+    memcpy(&p.mac_addr, mac, 6);
+    int idx = list_indexOf(list, &p);
+    if (idx >= 0) {
+        return list_get(list, idx);
     }
-
     return NULL;
 }
 
@@ -806,17 +811,9 @@ struct peer_info* find_peer_by_mac(struct peer_info* list, const char* mac)
 /** Return the number of elements in the list.
  *
  */
-size_t peer_list_size( const struct peer_info * list )
+size_t peer_list_size( list_t list )
 {
-  size_t retval=0;
-
-  while ( list )
-    {
-      ++retval;
-      list = list->next;
-    }
-
-  return retval;
+    return list->count;
 }
 
 /** Add new to the head of list. If list is NULL; create it.
@@ -824,12 +821,13 @@ size_t peer_list_size( const struct peer_info * list )
  *  The item new is added to the head of the list. New is modified during
  *  insertion. list takes ownership of new.
  */
-void peer_list_add( struct peer_info * * list,
+void peer_list_add( list_t list,
                     struct peer_info * new )
 {
-  new->next = *list;
+ /* new->next = *list;
   new->last_seen = time(NULL);
-  *list = new;
+  *list = new;*/
+    list_add(list, new);
 }
 
 
@@ -868,42 +866,51 @@ size_t purge_expired_registrations2( struct peer_info ** peer_list ,struct peer_
 }
 
 /** Purge old items from the peer_list and return the number of items that were removed. */
-size_t purge_peer_list( struct peer_info ** peer_list,
+size_t purge_peer_list( list_t peer_list,
                         time_t purge_before )
 {
   struct peer_info *scan;
   struct peer_info *prev;
   size_t retval=0;
 
-  scan = *peer_list;
-  prev = NULL;
-  while(scan != NULL)
-    {
-      if(scan->last_seen < purge_before)
-        {
-	  struct peer_info *next = scan->next;
+  for (int i = 0; i < peer_list->count; i++) {
+      scan = list_get(peer_list, i);
+      if (scan->last_seen < purge_before) {
+          //todo remove
+          list_removeAt(peer_list, i);
+          i--;
+      }
+  }
+  return peer_list->count;
+  //scan = *peer_list;
+  //prev = NULL;
+  //while(scan != NULL)
+  //  {
+  //    if(scan->last_seen < purge_before)
+  //      {
+	 // struct peer_info *next = scan->next;
 
-	  if(prev == NULL)
-            {
-	      *peer_list = next;
-            }
-	  else
-            {
-	      prev->next = next;
-            }
+	 // if(prev == NULL)
+  //          {
+	 //     *peer_list = next;
+  //          }
+	 // else
+  //          {
+	 //     prev->next = next;
+  //          }
 
-	  ++retval;
-	  free(scan);
-	  scan = next;
-        }
-      else
-        {
-	  prev = scan;
-	  scan = scan->next;
-        }
-    }
+	 // ++retval;
+	 // free(scan);
+	 // scan = next;
+  //      }
+  //    else
+  //      {
+	 // prev = scan;
+	 // scan = scan->next;
+  //      }
+  //  }
 
-  return retval;
+  //return retval;
 }
 
 static u_int8_t hex2byte( const char * s )

@@ -1,5 +1,8 @@
 #pragma once
 #include "list.h"
+static int list_indexOf2(list_t list, void* data, int startOffset, int endOffset);
+static void list_resize(list_t list, int len);
+
 
 list_t list_create(int (*p) (void* data1, void* data2)) {
 	list_t t = malloc(sizeof(struct list_s));
@@ -27,29 +30,29 @@ void list_destory(list_t list) {
 	void** tofree = list->data;
 	list->data = NULL;
 	list->len = 0;
-	list->used = 0;
+	list->count = 0;
 	if (tofree != NULL) {
 		free(tofree);
 	}
 }
 
 void list_insert(list_t list, void* data, unsigned int offset) {
-	if (list->used >= list->len) {
+	if (list->count >= list->len) {
 		list_resize(list, list->len + 32);
 	}
-	if (offset >= list->used) {
-		list->data[list->used] = data;
-		printf("set data[%d]=%d, data=%d \r\n", list->used, data, *((int*)data));
-		list->used++;
+	if (offset >= list->count) {
+		list->data[list->count] = data;
+		printf("set data[%d]=%d, data=%d \r\n", list->count, data, *((int*)data));
+		list->count++;
 	}
 	else {
-		void** temp = malloc(sizeof(void*) * list->used);
-		memcpy(temp, list->data, list->used * sizeof(void*));
+		void** temp = malloc(sizeof(void*) * list->count);
+		memcpy(temp, list->data, list->count * sizeof(void*));
 		list->data[offset] = data;
-		memcpy(&(list->data)[offset + 1], &temp[offset], (list->used - offset) * sizeof(void*));
+		memcpy(&(list->data)[offset + 1], &temp[offset], (list->count - offset) * sizeof(void*));
 		free(temp);
 		printf("set data[%d]=%d, data=%d \r\n", offset, data, *((int*)data));
-		list->used++;
+		list->count++;
 	}
 }
 
@@ -82,11 +85,11 @@ int list_indexOf4add(list_t list, void* data, int startOffset, int endOffset) {
 
 void list_add(list_t list, void* data) {
 
-	if (list->used == 0) {
+	if (list->count == 0) {
 		list_insert(list, data, 0);
 		return;
 	}
-	int idx = list_indexOf2(list, data, 0, list->used - 1);
+	int idx = list_indexOf2(list, data, 0, list->count - 1);
 	list_insert(list, data, idx);
 	//for (unsigned int i = 0; i < list->used; i++) {
 	//	printf("compare %d ,handle=%d ,addr1=%d, addr2=%d\r\n", i, list->comparer, &(list->data)[i],list->data+i*sizeof(void*));
@@ -103,11 +106,11 @@ void list_add(list_t list, void* data) {
 }
 
 int list_indexOf(list_t list, void* data) {
-	if (list->used == 0) {
+	if (list->count == 0) {
 		return -1;
 	}
-	int idx = list_indexOf2(list, data, 0, list->used - 1);
-	if (idx >= list->used) {
+	int idx = list_indexOf2(list, data, 0, list->count - 1);
+	if (idx >= list->count) {
 		return -1;
 	}
 	if (list->comparer(data, list->data[idx]) != 0) {
@@ -116,7 +119,7 @@ int list_indexOf(list_t list, void* data) {
 	return idx;
 }
 
-int list_indexOf2(list_t list, void* data, int startOffset, int endOffset) {
+static int list_indexOf2(list_t list, void* data, int startOffset, int endOffset) {
 	int c1 = list->comparer(data, list->data[startOffset]);
 	if (c1 <= 0) {
 		return startOffset;
@@ -155,11 +158,36 @@ int list_indexOf2(list_t list, void* data, int startOffset, int endOffset) {
 	}
 }
 
+
+
 void* list_get(list_t list, int index) {
-	if (index < 0 || index >= list->used) {
+	if (index < 0 || index >= list->count) {
 		return NULL;
 	}
 	return list->data[index];
+}
+
+void* list_find(list_t list, void* data) {
+	int idx = list_indexOf(list, data);
+	if (idx >= 0) {
+		return list->data[idx];
+	}
+	return NULL;
+}
+
+void* list_removeAt(list_t list, int index) {
+	if (index < 0 || index >= list->count) {
+		return NULL;
+	}
+	void* dt = list->data[index];
+	if (index < list->count - 1) {
+		void** temp = malloc(sizeof(void*) * list->count);
+		memcpy(temp, list->data, list->count * sizeof(void*));
+		memcpy(&(list->data)[index], &temp[index + 1], (list->count - index - 1) * sizeof(void*));
+		free(temp);
+		//printf("set data[%d]=%d, data=%d \r\n", offset, data, *((int*)data));
+		list->count--;
+	}
 }
 
 int cppeer(void* d1, void* d2) {
@@ -197,7 +225,7 @@ void list_test() {
 	//}
 	list_add(list, &d4);
 	printf("list added \r\n");
-	for (int i = 0; i < list->used; i++) {
+	for (int i = 0; i < list->count; i++) {
 		printf("list[%d]=%d data=%d\r\n", i, list_get(list, i), *((int*)list_get(list, i)));
 	}
 	int idx = list_indexOf(list, &d3);

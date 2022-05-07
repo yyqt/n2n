@@ -60,8 +60,8 @@ struct n2n_edge
   TWOFISH *           enc_tf[16];
   TWOFISH *           dec_tf[16];
 
-  struct peer_info *  known_peers /* = NULL*/;
-  struct peer_info *  pending_peers /* = NULL*/;
+  list_t  known_peers /* = NULL*/;
+  list_t  pending_peers /* = NULL*/;
   time_t              last_register /* = 0*/;
   multiThreadQueue_t mt_queue; /*线程安全的queue*/
 };
@@ -191,6 +191,9 @@ static char ** buildargv(char * const linebuffer) {
   return argv;
 }
 
+static int peer_compare(struct peer_info* peer1, struct peer_info* peer2) {
+    return memcmp(peer1->mac_addr, peer2->mac_addr, 6);
+}
 
 
 /* ************************************** */
@@ -213,8 +216,8 @@ static int edge_init(n2n_edge_t * eee) {
       eee->enc_tf[i] = NULL;
       eee->dec_tf[i] = NULL;
   }
-  eee->known_peers   = NULL;
-  eee->pending_peers = NULL;
+  eee->known_peers   = list_create(peer_compare);
+  eee->pending_peers = list_create(peer_compare);
   eee->last_register = 0;
   if(lzo_init() != LZO_E_OK) {
     traceEvent(TRACE_ERROR, "LZO compression error");
@@ -497,81 +500,71 @@ void check_peer( n2n_edge_t * eee,
  *
  * Called by main loop when Rx a REGISTER_ACK.
  */
-void set_peer_operational( n2n_edge_t * eee, const struct n2n_packet_header * hdr )
+void set_peer_operational(n2n_edge_t* eee, const struct n2n_packet_header* hdr)
 {
-  struct peer_info * prev = NULL;
-  struct peer_info * scan;
-  macstr_t mac_buf;
-  ipstr_t ip_buf;
+    struct peer_info* scan;
+    macstr_t mac_buf;
+    ipstr_t ip_buf;
+    int idx = list_indexOf(eee->pending_peers, &hdr->dst_mac - COMMUNITY_LEN);
 
-  scan=eee->pending_peers;
-
-  while ( NULL != scan )
+    if (idx >= 0)
     {
-      if ( 0 != memcmp( scan->mac_addr, hdr->dst_mac, 6 ) )
-        {
-	  break; /* found. */
-        }
+        scan = list_get(eee->pending_peers, idx); //eee->pending_peers;
 
-      prev = scan;
-      scan = scan->next;
+        /* Remove scan from pending_peers. */
+     //   if ( prev )
+     //     {
+        //prev->next = scan->next;
+     //     }
+     //   else
+     //     {
+        //eee->pending_peers = scan->next;
+     //     }
+
+     //   /* Add scan to known_peers. */
+     //   scan->next = eee->known_peers;
+     //   eee->known_peers = scan;
+
+
+        scan->public_ip = hdr->public_ip;
+        list_add(eee->known_peers, scan);
+
+        traceEvent(TRACE_INFO, "=== new peer [mac=%s][socket=%s:%hu]",
+            macaddr_str(scan->mac_addr, mac_buf, sizeof(mac_buf)),
+            intoa(ntohl(scan->public_ip.addr_type.v4_addr), ip_buf, sizeof(ip_buf)),
+            ntohs(scan->public_ip.port));
+
+        traceEvent(TRACE_NORMAL, "Pending peers list size=%ld",
+            peer_list_size(eee->pending_peers));
+
+        traceEvent(TRACE_NORMAL, "Operational peers list size=%ld",
+            peer_list_size(eee->known_peers));
+
+
+        scan->last_seen = time(NULL);
     }
-
-  if ( scan )
+    else
     {
-
-      /* Remove scan from pending_peers. */
-      if ( prev )
-        {
-	  prev->next = scan->next;
-        }
-      else
-        {
-	  eee->pending_peers = scan->next;
-        }
-
-      /* Add scan to known_peers. */
-      scan->next = eee->known_peers;
-      eee->known_peers = scan;
-
-      scan->public_ip = hdr->public_ip;
-
-      traceEvent(TRACE_INFO, "=== new peer [mac=%s][socket=%s:%hu]",
-		 macaddr_str(scan->mac_addr, mac_buf, sizeof(mac_buf)),
-		 intoa(ntohl(scan->public_ip.addr_type.v4_addr), ip_buf, sizeof(ip_buf)),
-		 ntohs(scan->public_ip.port));
-
-      traceEvent( TRACE_NORMAL, "Pending peers list size=%ld",
-		  peer_list_size( eee->pending_peers ) );
-
-      traceEvent( TRACE_NORMAL, "Operational peers list size=%ld",
-		  peer_list_size( eee->known_peers ) );
-
-
-      scan->last_seen = time(NULL);
-    }
-  else
-    {
-      traceEvent( TRACE_WARNING, "Failed to find sender in pending_peers." );
+        traceEvent(TRACE_WARNING, "Failed to find sender in pending_peers.");
     }
 }
 
 
-void trace_registrations( struct peer_info * scan )
+void trace_registrations(list_t list)
 {
-  macstr_t mac_buf;
-  ipstr_t ip_buf;
-
-  while ( scan )
+    macstr_t mac_buf;
+    ipstr_t ip_buf;
+    struct peer_info* scan;
+    for (int i = 0; i < list->count; i++)
     {
-      traceEvent(TRACE_INFO, "=== peer [mac=%s][socket=%s:%hu]",
-		 macaddr_str(scan->mac_addr, mac_buf, sizeof(mac_buf)),
-		 intoa(ntohl(scan->public_ip.addr_type.v4_addr), ip_buf, sizeof(ip_buf)),
-		 ntohs(scan->public_ip.port));
+        scan = list_get(list, i);
+        traceEvent(TRACE_INFO, "=== peer [mac=%s][socket=%s:%hu]",
+            macaddr_str(scan->mac_addr, mac_buf, sizeof(mac_buf)),
+            intoa(ntohl(scan->public_ip.addr_type.v4_addr), ip_buf, sizeof(ip_buf)),
+            ntohs(scan->public_ip.port));
 
-      scan = scan->next;
+        //scan = scan->next;
     }
-
 }
 
 u_int8_t broadcast_mac[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
@@ -584,76 +577,77 @@ u_int8_t broadcast_mac[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
  *  - if the public_ip socket has changed, erase the entry
  *  - if the same, update its last_seen = when
  */
-static void update_peer_address(n2n_edge_t * eee,
-                                const struct n2n_packet_header * hdr,
-                                time_t when)
+static void update_peer_address(n2n_edge_t* eee,
+    const struct n2n_packet_header* hdr,
+    time_t when)
 {
-  ipstr_t ip_buf;
-  struct peer_info *scan = eee->known_peers;
-  struct peer_info *prev = NULL; /* use to remove bad registrations. */
+    ipstr_t ip_buf;
 
-  if ( 0 == hdr->public_ip.addr_type.v4_addr )
+
+    if (0 == hdr->public_ip.addr_type.v4_addr)
     {
-      /* Not to be registered. */
-      return;
+        /* Not to be registered. */
+        return;
     }
 
-  if ( 0 == memcmp( hdr->dst_mac, broadcast_mac, 6 ) )
+    if (0 == memcmp(hdr->dst_mac, broadcast_mac, 6))
     {
-      /* Not to be registered. */
-      return;
+        /* Not to be registered. */
+        return;
+    }
+    int idx = list_indexOf(eee->known_peers, &hdr->dst_mac - COMMUNITY_LEN);
+    struct peer_info* scan = list_get(eee->known_peers, idx);// eee->known_peers;
+
+    //while (scan != NULL)
+    //{
+    //    if (memcmp(hdr->dst_mac, scan->mac_addr, 6) == 0)
+    //    {
+    //        break;
+    //    }
+
+    //    prev = scan;
+    //    scan = scan->next;
+    //}
+
+    if (NULL == scan)
+    {
+        /* Not in known_peers. */
+        return;
     }
 
-
-  while(scan != NULL)
+    if (0 != memcmp(&(scan->public_ip), &(hdr->public_ip), sizeof(struct peer_addr)))
     {
-      if(memcmp(hdr->dst_mac, scan->mac_addr, 6) == 0)
+        if (0 == hdr->sent_by_supernode)
         {
-	  break;
+            traceEvent(TRACE_NORMAL, "Peer changed public socket, Was %s:%hu",
+                intoa(ntohl(hdr->public_ip.addr_type.v4_addr), ip_buf, sizeof(ip_buf)),
+                ntohs(hdr->public_ip.port));
+
+            /* The peer has changed public socket. It can no longer be assumed to be reachable. */
+            /* Remove the peer. */
+            //if (NULL == prev)
+            //{
+            //    /* scan was head of list */
+            //    eee->known_peers = scan->next;
+            //}
+            //else
+            //{
+            //    prev->next = scan->next;
+            //}
+            list_removeAt(eee->known_peers, idx);
+            free(scan);
+
+            try_send_register(eee, hdr);
         }
-
-      prev = scan;
-      scan = scan->next;
-    }
-
-  if ( NULL == scan )
-    {
-      /* Not in known_peers. */
-      return;
-    }
-
-  if ( 0 != memcmp( &(scan->public_ip), &(hdr->public_ip), sizeof(struct peer_addr)))
-    {
-      if ( 0 == hdr->sent_by_supernode )
+        else
         {
-	  traceEvent( TRACE_NORMAL, "Peer changed public socket, Was %s:%hu",
-		      intoa(ntohl(hdr->public_ip.addr_type.v4_addr), ip_buf, sizeof(ip_buf)),
-		      ntohs(hdr->public_ip.port));
-
-	  /* The peer has changed public socket. It can no longer be assumed to be reachable. */
-	  /* Remove the peer. */
-	  if ( NULL == prev )
-            {
-	      /* scan was head of list */
-	      eee->known_peers = scan->next;
-            }
-	  else
-            {
-	      prev->next = scan->next;
-            }
-	  free(scan);
-
-	  try_send_register( eee, hdr );
-        }
-      else
-        {
-	  /* Don't worry about what the supernode reports, it could be seeing a different socket. */
+            /* Don't worry about what the supernode reports, it could be seeing a different socket. */
         }
     }
-  else
+    else
     {
-      /* Found and unchanged. */
-      scan->last_seen = when;
+        /* Found and unchanged. */
+        scan->last_seen = when;
     }
 }
 
@@ -736,46 +730,38 @@ static void update_registrations( n2n_edge_t * eee ) {
 
 /* ***************************************************** */
 
-static int find_peer_destination(n2n_edge_t * eee,
-                                 const u_char *mac_address,
-                                 struct peer_addr *destination) {
-  const struct peer_info *scan = eee->known_peers;
-  macstr_t mac_buf;
-  ipstr_t ip_buf;
-  int retval=0;
+static int find_peer_destination(n2n_edge_t* eee,
+    const u_char* mac_address,
+    struct peer_addr* destination) {
+    int idx = list_indexOf(eee->known_peers, mac_address - COMMUNITY_LEN);
+    macstr_t mac_buf;
+    ipstr_t ip_buf;
+    int retval = 0;
 
-  traceEvent(TRACE_INFO, "Searching destination peer for MAC %02X:%02X:%02X:%02X:%02X:%02X",
-	     mac_address[0] & 0xFF, mac_address[1] & 0xFF, mac_address[2] & 0xFF,
-	     mac_address[3] & 0xFF, mac_address[4] & 0xFF, mac_address[5] & 0xFF);
+    traceEvent(TRACE_INFO, "Searching destination peer for MAC %02X:%02X:%02X:%02X:%02X:%02X",
+        mac_address[0] & 0xFF, mac_address[1] & 0xFF, mac_address[2] & 0xFF,
+        mac_address[3] & 0xFF, mac_address[4] & 0xFF, mac_address[5] & 0xFF);
 
-  while(scan != NULL) {
-    traceEvent(TRACE_INFO, "Evaluating peer [MAC=%02X:%02X:%02X:%02X:%02X:%02X][ip=%s:%hu]",
-	       scan->mac_addr[0] & 0xFF, scan->mac_addr[1] & 0xFF, scan->mac_addr[2] & 0xFF,
-	       scan->mac_addr[3] & 0xFF, scan->mac_addr[4] & 0xFF, scan->mac_addr[5] & 0xFF,
-	       intoa(ntohl(scan->public_ip.addr_type.v4_addr), ip_buf, sizeof(ip_buf)),
-	       ntohs(scan->public_ip.port));
-
-    if((scan->last_seen > 0) &&
-       (memcmp(mac_address, scan->mac_addr, 6) == 0))
-      {
-        memcpy(destination, &scan->public_ip, sizeof(struct sockaddr_in));
-        retval=1;
-        break;
-      }
-    scan = scan->next;
-  }
-
-  if ( 0 == retval )
-    {
-      memcpy(destination, &(eee->supernode), sizeof(struct sockaddr_in));
+    if (idx >= 0) {
+        struct peer_info* scan = list_get(eee->known_peers, idx);
+        if ((scan->last_seen > 0))
+        {
+            memcpy(destination, &scan->public_ip, sizeof(struct sockaddr_in));
+            retval = 1;
+        }
     }
 
-  traceEvent(TRACE_INFO, "find_peer_address(%s) -> [socket=%s:%hu]",
-             macaddr_str( (char *)mac_address, mac_buf, sizeof(mac_buf)),
-             intoa(ntohl(destination->addr_type.v4_addr), ip_buf, sizeof(ip_buf)),
-             ntohs(destination->port));
+    if (0 == retval)
+    {
+        memcpy(destination, &(eee->supernode), sizeof(struct sockaddr_in));
+    }
 
-  return retval;
+    traceEvent(TRACE_INFO, "find_peer_address(%s) -> [socket=%s:%hu]",
+        macaddr_str((char*)mac_address, mac_buf, sizeof(mac_buf)),
+        intoa(ntohl(destination->addr_type.v4_addr), ip_buf, sizeof(ip_buf)),
+        ntohs(destination->port));
+
+    return retval;
 }
 
 /* *********************************************** */

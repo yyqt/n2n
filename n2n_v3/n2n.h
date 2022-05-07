@@ -192,8 +192,6 @@ struct peer_info {
   char community_name[COMMUNITY_LEN], mac_addr[6];
   struct peer_addr public_ip, private_ip;
   time_t last_seen;
-  struct peer_info *next;
-  struct peer_info* prev;
   /* socket */
   n2n_sock_info_t sinfo;
   char regcount;
