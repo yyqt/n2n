@@ -528,6 +528,7 @@ void set_peer_operational(n2n_edge_t* eee, const struct n2n_packet_header* hdr)
 
         scan->public_ip = hdr->public_ip;
         list_add(eee->known_peers, scan);
+        list_removeAt(eee->pending_peers, idx);
 
         traceEvent(TRACE_INFO, "=== new peer [mac=%s][socket=%s:%hu]",
             macaddr_str(scan->mac_addr, mac_buf, sizeof(mac_buf)),
