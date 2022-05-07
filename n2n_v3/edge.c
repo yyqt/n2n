@@ -194,7 +194,7 @@ static char** buildargv(char* const linebuffer) {
 }
 
 static int peer_compare(char* peer1, char* peer2) {
-    printf("peer_compare %d to %d", peer1, peer2);
+    //printf("peer_compare %d to %d", peer1, peer2);
     return memcmp(peer1 + COMMUNITY_LEN, peer2 + COMMUNITY_LEN, 6);
 }
 
