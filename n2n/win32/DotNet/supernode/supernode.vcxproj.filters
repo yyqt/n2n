@@ -39,6 +39,9 @@
     <ClCompile Include="..\..\version-msvc.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\list.c">
+      <Filter>Header Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\lzoconf.h">
@@ -64,6 +67,9 @@
     </ClInclude>
     <ClInclude Include="..\..\..\win32\wintap.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\list.h">
+      <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
