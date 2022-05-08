@@ -18,7 +18,7 @@
 */
 
 #include "n2n.h"
-
+#include "list.h"
 struct tx_stats
 {
     size_t pkts;
