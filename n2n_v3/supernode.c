@@ -36,8 +36,9 @@ static void help() {
 
 /* *********************************************** */
 
-static struct peer_info *known_peers = NULL;
+static list_t known_peers = NULL;// peer_info* known_peers = NULL;
 static struct tx_stats supernode_stats = {0,0};
+static int peer_cp(struct peer_addr* cp1, struct peer_addr* cp2);
 
 /* *********************************************** */
 
@@ -65,44 +66,55 @@ static void send_register_ack( n2n_sock_info_t * sinfo,
     marshall_n2n_packet_header( pkt, &hdr );
     send_packet(sinfo, (char *)pkt, &len, destination_peer, N2N_COMPRESSION_ENABLED);
 }
-
-static void register_peer(struct n2n_packet_header *hdr,
-			  struct peer_addr *sender,
-			  n2n_sock_info_t * sinfo) {
-  struct peer_info *scan = known_peers;
-  ipstr_t buf, buf1;
-  macstr_t mac_buf;
-
-  send_register_ack( sinfo, sender, hdr ); /* keep firewalls open */
-
-  while(scan != NULL) {
-    if((strcmp(scan->community_name, hdr->community_name) == 0)
-       && (memcmp(&scan->mac_addr, hdr->src_mac, 6) == 0)) {
-
-      scan->last_seen = time(NULL);
-      if ( ( 0 != memcmp(&scan->public_ip, sender, sizeof(struct peer_addr)) ) ||
-           ( 0 != memcmp(&scan->private_ip, &hdr->private_ip, sizeof(struct peer_addr)) ) ) 
-      {
-        /* Something is actually different. */
-        memcpy(&scan->public_ip, sender, sizeof(struct peer_addr));
-        memcpy(&scan->private_ip, &hdr->private_ip, sizeof(struct peer_addr));
-
-        /* Overwrite existing peer */
-        traceEvent(TRACE_NORMAL, "Re-registered node [public_ip=(%d)%s:%hu][private_ip=%s:%hu][mac=%s][community=%s]",
-                   scan->public_ip.family,
-                   intoa(ntohl(scan->public_ip.addr_type.v4_addr), buf, sizeof(buf)),
-                   ntohs(scan->public_ip.port),
-                   intoa(ntohl(scan->private_ip.addr_type.v4_addr), buf1, sizeof(buf1)),
-                   ntohs(scan->private_ip.port),
-                   macaddr_str(scan->mac_addr, mac_buf, sizeof(mac_buf)),
-                   scan->community_name);
-      }
-      
-      return; /* Found the registration entry so stop. */
+static int peer_cp(struct peer_info* cp1, struct peer_info* cp2) {
+    int c1 = strcmp(cp1->community_name, cp2->community_name);
+    if (c1 != 0) {
+        return c1;
     }
+    else {
+        return memcmp(&cp1->mac_addr, &cp2->mac_addr, 6);
+    }
+}
 
-    scan = scan->next;
-  }
+static void register_peer(struct n2n_packet_header* hdr,
+    struct peer_addr* sender,
+    n2n_sock_info_t* sinfo) {
+    //struct peer_info *scan = known_peers;
+    ipstr_t buf, buf1;
+    macstr_t mac_buf;
+
+    send_register_ack(sinfo, sender, hdr); /* keep firewalls open */
+
+    struct peer_info tmp;
+    memcpy(&tmp.community_name, hdr->community_name, COMMUNITY_LEN);
+    memcpy(&tmp.mac_addr, hdr->src_mac, 6);
+    struct peer_info* scan = list_find(known_peers, &tmp);
+
+    //while(scan != NULL) {
+      //if((strcmp(scan->community_name, hdr->community_name) == 0)
+      //   && (memcmp(&scan->mac_addr, hdr->src_mac, 6) == 0)) {
+    if (scan != NULL) {
+        scan->last_seen = time(NULL);
+        if ((0 != memcmp(&scan->public_ip, sender, sizeof(struct peer_addr))) ||
+            (0 != memcmp(&scan->private_ip, &hdr->private_ip, sizeof(struct peer_addr))))
+        {
+            /* Something is actually different. */
+            memcpy(&scan->public_ip, sender, sizeof(struct peer_addr));
+            memcpy(&scan->private_ip, &hdr->private_ip, sizeof(struct peer_addr));
+
+            /* Overwrite existing peer */
+            traceEvent(TRACE_NORMAL, "Re-registered node [public_ip=(%d)%s:%hu][private_ip=%s:%hu][mac=%s][community=%s]",
+                scan->public_ip.family,
+                intoa(ntohl(scan->public_ip.addr_type.v4_addr), buf, sizeof(buf)),
+                ntohs(scan->public_ip.port),
+                intoa(ntohl(scan->private_ip.addr_type.v4_addr), buf1, sizeof(buf1)),
+                ntohs(scan->private_ip.port),
+                macaddr_str(scan->mac_addr, mac_buf, sizeof(mac_buf)),
+                scan->community_name);
+        }
+
+        return; /* Found the registration entry so stop. */
+    }
 
   /* FIX mettere un limite alla lista dei peer */
 
@@ -112,9 +124,10 @@ static void register_peer(struct n2n_packet_header *hdr,
   memcpy(&scan->private_ip, &hdr->private_ip, sizeof(struct peer_addr));
   memcpy(&scan->mac_addr, hdr->src_mac, 6);
   scan->last_seen       = time(NULL); // FIX aggiungere un timeout
-  scan->next            = known_peers;
+  //scan->next            = known_peers;
   scan->sinfo           = *sinfo;
-  known_peers           = scan;
+ // known_peers           = scan;
+  list_add(known_peers, scan);
 
   traceEvent(TRACE_NORMAL, "Registered new node [public_ip=(%d)%s:%d][private_ip=%s:%d][mac=%s][community=%s]",
              scan->public_ip.family,
@@ -128,36 +141,43 @@ static void register_peer(struct n2n_packet_header *hdr,
 
 /* *********************************************** */
 
-static void deregister_peer(struct n2n_packet_header *hdr,
-			    struct peer_addr *sender) {
-  struct peer_info *scan = known_peers, *prev = NULL;
-  ipstr_t buf, buf1;
+static void deregister_peer(struct n2n_packet_header* hdr,
+    struct peer_addr* sender) {
+    struct peer_info* scan = NULL;
+    ipstr_t buf, buf1;
+    struct peer_info tmp;
+    memcpy(&tmp.community_name, hdr->community_name, COMMUNITY_LEN);
+    memcpy(&tmp.mac_addr, hdr->src_mac, 6);
+    int idx = list_indexOf(known_peers, &tmp);
+    // while(scan != NULL) {
+    //   if((strcmp(scan->community_name, hdr->community_name) == 0)
+    //      && (memcmp(&scan->mac_addr, hdr->src_mac, 6) == 0)) {
+    //     /* Overwrite existing peer */
+    //     if(prev == NULL)
+       //known_peers = scan->next;
+    //     else
+       //prev->next = scan->next;
+    if (idx >= 0) {
+        scan = list_get(known_peers, idx);
+        if (scan != NULL) {
+            traceEvent(TRACE_INFO, "Degistered node [public_ip=%s:%hu][private_ip=%s:%hu]",
+                intoa(ntohl(scan->public_ip.addr_type.v4_addr), buf, sizeof(buf)),
+                ntohs(scan->public_ip.port),
+                intoa(ntohl(scan->private_ip.addr_type.v4_addr), buf1, sizeof(buf1)),
+                ntohs(scan->private_ip.port));
 
-  while(scan != NULL) {
-    if((strcmp(scan->community_name, hdr->community_name) == 0)
-       && (memcmp(&scan->mac_addr, hdr->src_mac, 6) == 0)) {
-      /* Overwrite existing peer */
-      if(prev == NULL)
-	known_peers = scan->next;
-      else
-	prev->next = scan->next;
-
-      traceEvent(TRACE_INFO, "Degistered node [public_ip=%s:%hu][private_ip=%s:%hu]",
-		 intoa(ntohl(scan->public_ip.addr_type.v4_addr), buf, sizeof(buf)),
-		 ntohs(scan->public_ip.port),
-		 intoa(ntohl(scan->private_ip.addr_type.v4_addr), buf1, sizeof(buf1)),
-		 ntohs(scan->private_ip.port));
-
-      free(scan);
-      return;
+            free(scan);
+        }
+        list_removeAt(known_peers, idx);
+        return;
     }
 
-    scan = scan->next;
-  }
+    // scan = scan->next;
 
-  traceEvent(TRACE_WARNING, "Unable to delete specified peer [%s:%hu]",
-	     intoa(ntohl(sender->addr_type.v4_addr), buf, sizeof(buf)),
-	     ntohs(sender->port));
+
+    traceEvent(TRACE_WARNING, "Unable to delete specified peer [%s:%hu]",
+        intoa(ntohl(sender->addr_type.v4_addr), buf, sizeof(buf)),
+        ntohs(sender->port));
 }
 
 /* *********************************************** */
@@ -180,47 +200,49 @@ static const struct option long_options[] = {
  *
  *  @return number of copies of the packet sent
  */
-static size_t broadcast_packet(char *packet, u_int packet_len, 
-                               struct peer_addr *sender,
-                               n2n_sock_info_t * sinfo,
-                               struct n2n_packet_header *hdr )
+static size_t broadcast_packet(char* packet, u_int packet_len,
+    struct peer_addr* sender,
+    n2n_sock_info_t* sinfo,
+    struct n2n_packet_header* hdr)
 {
-    size_t numsent=0;
-    struct peer_info *scan;
+    size_t numsent = 0;
+    struct peer_info* scan;
 
-    scan = known_peers;
-    while(scan != NULL) {
-        if((strcmp(scan->community_name, hdr->community_name) == 0)
-           && (memcmp(sender, &scan->public_ip, sizeof(struct peer_addr)) /* No L3 self-send */) )
-        {
-            int data_sent_len;
-            size_t len = packet_len;
-          
-            data_sent_len = send_data( &(scan->sinfo), packet, &len, &scan->public_ip, 0);
-
-            if(data_sent_len != len)
+    //scan = known_peers;
+   // while(scan != NULL) {
+    for (int i = 0; i < known_peers->count; i++) {
+        scan = list_get(known_peers, i);
+        if (scan != NULL) {
+            if ((strcmp(scan->community_name, hdr->community_name) == 0)
+                && (memcmp(sender, &scan->public_ip, sizeof(struct peer_addr)) /* No L3 self-send */))
             {
-                ++(supernode_stats.errors);
-                traceEvent(TRACE_WARNING, "sendto() [sent=%d][attempted_to_send=%d] [%s]\n",
-                           data_sent_len, len, strerror(errno));
-            }
-            else 
-            {
-                ipstr_t buf;
-                ipstr_t buf1;
+                int data_sent_len;
+                size_t len = packet_len;
 
-                ++numsent;
-                ++(supernode_stats.pkts);
-                traceEvent(TRACE_INFO, "Sent multicast message to remote node [%s:%hu][mac=%s]",
-                           intoa(ntohl(scan->public_ip.addr_type.v4_addr), buf, sizeof(buf)),
-                           ntohs(scan->public_ip.port),
-                           macaddr_str(scan->mac_addr, buf1, sizeof(buf1)));
+                data_sent_len = send_data(&(scan->sinfo), packet, &len, &scan->public_ip, 0);
+
+                if (data_sent_len != len)
+                {
+                    ++(supernode_stats.errors);
+                    traceEvent(TRACE_WARNING, "sendto() [sent=%d][attempted_to_send=%d] [%s]\n",
+                        data_sent_len, len, strerror(errno));
+                }
+                else
+                {
+                    ipstr_t buf;
+                    ipstr_t buf1;
+
+                    ++numsent;
+                    ++(supernode_stats.pkts);
+                    traceEvent(TRACE_INFO, "Sent multicast message to remote node [%s:%hu][mac=%s]",
+                        intoa(ntohl(scan->public_ip.addr_type.v4_addr), buf, sizeof(buf)),
+                        ntohs(scan->public_ip.port),
+                        macaddr_str(scan->mac_addr, buf1, sizeof(buf1)));
+                }
             }
         }
-
-        scan = scan->next;
+        // scan = scan->next;
     } /* while */
-
 
     return numsent;
 }
@@ -465,6 +487,8 @@ int main(int argc, char* argv[]) {
 
   if(!(local_port))
     help();
+
+  known_peers = list_create(peer_cp);
 
   udp_sinfo.is_udp_socket=1;
   udp_sinfo.sock = open_socket(local_port, 1, 0);

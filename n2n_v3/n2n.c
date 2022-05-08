@@ -829,7 +829,7 @@ void peer_list_add( list_t list,
 }
 
 
-size_t purge_expired_registrations( struct peer_info ** peer_list ) {
+size_t purge_expired_registrations( list_t peer_list ) {
   static time_t last_purge = 0;
   time_t now = time(NULL);
   size_t num_reg = 0;
