@@ -8,3 +8,9 @@
 /n2n_v3/win32/DotNet/supernode/Debug
 /n2n_v3/win32/DotNet/supernode/Release
 /n2n_v3/win32/DotNet/packages
+/n2n/win32/DotNet/packages
+/n2n/win32/DotNet/Release
+/n2n/win32/DotNet/supernode/Release
+/n2n/win32/DotNet/supernode/x64/Release
+/n2n/win32/DotNet/.vs/
+/n2n/win32/DotNet/x64/Release
