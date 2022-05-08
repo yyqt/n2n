@@ -313,7 +313,7 @@ void   peer_list_add(list_t list, struct peer_info* new);
 size_t peer_list_size(list_t list);
 size_t purge_peer_list(list_t peer_list, time_t purge_before);
 size_t purge_expired_registrations(list_t peer_list);
-size_t purge_expired_registrations2(list_t peer_list, list_t peer_list2);
+size_t purge_expired_registrations2(void* queue, list_t peer_list, list_t peer_list2);
 /* version.c */
 extern char *version, *osName, *buildDate;
 

@@ -846,7 +846,8 @@ size_t purge_expired_registrations( list_t peer_list ) {
   return num_reg;
 }
 
-size_t purge_expired_registrations2(multiThreadQueue_t queue, list_t peer_list, list_t peer_list2) {
+size_t purge_expired_registrations2(void* _queue, list_t peer_list, list_t peer_list2) {
+    multiThreadQueue_t queue = _queue;
     static time_t last_purge = 0;
     time_t now = time(NULL);
     size_t num_reg = 0;

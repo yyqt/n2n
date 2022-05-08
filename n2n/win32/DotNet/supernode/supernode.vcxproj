@@ -92,6 +92,7 @@
     <ClCompile Include="..\..\..\list.c" />
     <ClCompile Include="..\..\..\minilzo.c" />
     <ClCompile Include="..\..\..\n2n.c" />
+    <ClCompile Include="..\..\..\sendqueue.c" />
     <ClCompile Include="..\..\..\supernode.c" />
     <ClCompile Include="..\..\..\twofish.c" />
     <ClCompile Include="..\..\..\win32\getopt.c" />
@@ -105,6 +106,7 @@
     <ClInclude Include="..\..\..\lzodefs.h" />
     <ClInclude Include="..\..\..\minilzo.h" />
     <ClInclude Include="..\..\..\n2n.h" />
+    <ClInclude Include="..\..\..\sendqueue.h" />
     <ClInclude Include="..\..\..\twofish.h" />
     <ClInclude Include="..\..\..\win32\getopt.h" />
     <ClInclude Include="..\..\..\win32\n2n_win32.h" />

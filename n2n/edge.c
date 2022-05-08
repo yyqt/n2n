@@ -1551,7 +1551,7 @@ effectiveargv[effectiveargc] = 0;
     update_registrations(&eee);
 
     //清理过期连接
-    numPurged =  purge_expired_registrations2( (eee.known_peers),(eee.pending_peers) );
+    numPurged =  purge_expired_registrations2(eee.mt_queue, (eee.known_peers),(eee.pending_peers) );
     /*numPurged += purge_expired_registrations( &(eee.pending_peers) );*/
     if ( numPurged > 0 )
       {
