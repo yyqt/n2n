@@ -42,6 +42,9 @@
     <ClCompile Include="..\..\sendqueue.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\list.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\lzoconf.h">
@@ -69,6 +72,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\sendqueue.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\list.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
