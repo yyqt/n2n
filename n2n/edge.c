@@ -612,6 +612,10 @@ static void update_peer_address(n2n_edge_t* eee,
     if (NULL == scan)
     {
         /* Not in known_peers. */
+        traceEvent(TRACE_INFO, "Peer changed public socket not found, Was %s:%hu  for MAC %02X:%02X:%02X:%02X:%02X:%02X",
+            intoa(ntohl(hdr->public_ip.addr_type.v4_addr), ip_buf, sizeof(ip_buf)),
+            ntohs(hdr->public_ip.port), hdr->dst_mac[0] & 0xFF, hdr->dst_mac[1] & 0xFF, hdr->dst_mac[2] & 0xFF,
+            hdr->dst_mac[3] & 0xFF, hdr->dst_mac[4] & 0xFF, hdr->dst_mac[5] & 0xFF);
         return;
     }
 
@@ -621,9 +625,10 @@ static void update_peer_address(n2n_edge_t* eee,
         {
             traceEvent(TRACE_NORMAL, "update_peer_address.lock.1.1£º");
             if (lockOne(&eee->mt_queue->lock4UpdatePeer) == 0) {
-                traceEvent(TRACE_NORMAL, "Peer changed public socket, Was %s:%hu",
+                traceEvent(TRACE_NORMAL, "Peer changed public socket, Was %s:%hu for MAC %02X:%02X:%02X:%02X:%02X:%02X",
                     intoa(ntohl(hdr->public_ip.addr_type.v4_addr), ip_buf, sizeof(ip_buf)),
-                    ntohs(hdr->public_ip.port));
+                    ntohs(hdr->public_ip.port), hdr->dst_mac[0] & 0xFF, hdr->dst_mac[1] & 0xFF, hdr->dst_mac[2] & 0xFF,
+                    hdr->dst_mac[3] & 0xFF, hdr->dst_mac[4] & 0xFF, hdr->dst_mac[5] & 0xFF);
                 idx = list_indexOf(eee->known_peers, hdr->src_mac - COMMUNITY_LEN);
                 if (idx >= 0) {
                     list_removeAt(eee->known_peers, idx);
