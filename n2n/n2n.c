@@ -24,7 +24,7 @@
 #include "n2n.h"
 #include "list.h"
 #include "minilzo.h"
-
+#include "sendqueue.h"
 #include <assert.h>
 
 #if defined(DEBUG)
@@ -846,7 +846,7 @@ size_t purge_expired_registrations( list_t peer_list ) {
   return num_reg;
 }
 
-size_t purge_expired_registrations2(list_t peer_list, list_t peer_list2) {
+size_t purge_expired_registrations2(multiThreadQueue_t queue, list_t peer_list, list_t peer_list2) {
     static time_t last_purge = 0;
     time_t now = time(NULL);
     size_t num_reg = 0;
@@ -854,9 +854,14 @@ size_t purge_expired_registrations2(list_t peer_list, list_t peer_list2) {
     if ((now - last_purge) < PURGE_REGISTRATION_FREQUENCY) return 0;
 
     traceEvent(TRACE_INFO, "Purging old registrations");
-
-    num_reg = purge_peer_list(peer_list, now - REGISTRATION_TIMEOUT);
-    num_reg += purge_peer_list(peer_list2, now - REGISTRATION_TIMEOUT);
+    traceEvent(TRACE_NORMAL, "purge_expired_registrations2.lock.1.0£º");
+    if (lockOne(queue->lock4UpdatePeer) == 0) {
+        traceEvent(TRACE_NORMAL, "purge_expired_registrations2.lock.1.1£º");
+        num_reg = purge_peer_list(peer_list, now - REGISTRATION_TIMEOUT);
+        num_reg += purge_peer_list(peer_list2, now - REGISTRATION_TIMEOUT);
+        releaseOne(queue->lock4UpdatePeer);
+        traceEvent(TRACE_NORMAL, "purge_expired_registrations2.lock.1.2£º");
+    }
     last_purge = now;
     traceEvent(TRACE_INFO, "Remove %ld registrations", num_reg);
 

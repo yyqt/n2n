@@ -419,7 +419,6 @@ void try_send_register(n2n_edge_t* eee,
 
                 /* pending_peers now owns scan. */
             }
-            traceEvent(TRACE_NORMAL, "try_send_register.lock.1.3");
             int  dd = releaseOne(&queue->lock4UpdatePeer);
             traceEvent(TRACE_NORMAL, "try_send_register.lock.1.4,rt=%d", dd);
         }
@@ -607,62 +606,45 @@ static void update_peer_address(n2n_edge_t* eee,
         /* Not to be registered. */
         return;
     }
-    int idx = list_indexOf(eee->known_peers, hdr->dst_mac - COMMUNITY_LEN);
-    if (idx < 0) {
-        return;
-    }
-    struct peer_info* scan = list_get(eee->known_peers, idx);// eee->known_peers;
+    if (lockOne(eee->mt_queue->lock4UpdatePeer) == 0) {
+        traceEvent(TRACE_NORMAL, "update_peer_address.lock.1.1£º");
+        int idx = list_indexOf(eee->known_peers, hdr->dst_mac - COMMUNITY_LEN);
+        if (idx < 0) {
+            return;
+        }
+        struct peer_info* scan = list_get(eee->known_peers, idx);// eee->known_peers;
 
-    //while (scan != NULL)
-    //{
-    //    if (memcmp(hdr->dst_mac, scan->mac_addr, 6) == 0)
-    //    {
-    //        break;
-    //    }
 
-    //    prev = scan;
-    //    scan = scan->next;
-    //}
-
-    if (NULL == scan)
-    {
-        /* Not in known_peers. */
-        return;
-    }
-
-    if (0 != memcmp(&(scan->public_ip), &(hdr->public_ip), sizeof(struct peer_addr)))
-    {
-        if (0 == hdr->sent_by_supernode)
+        if (NULL == scan)
         {
-            traceEvent(TRACE_NORMAL, "Peer changed public socket, Was %s:%hu",
-                intoa(ntohl(hdr->public_ip.addr_type.v4_addr), ip_buf, sizeof(ip_buf)),
-                ntohs(hdr->public_ip.port));
+            /* Not in known_peers. */
+            return;
+        }
 
-            /* The peer has changed public socket. It can no longer be assumed to be reachable. */
-            /* Remove the peer. */
-            //if (NULL == prev)
-            //{
-            //    /* scan was head of list */
-            //    eee->known_peers = scan->next;
-            //}
-            //else
-            //{
-            //    prev->next = scan->next;
-            //}
-            list_removeAt(eee->known_peers, idx);
-            free(scan);
+        if (0 != memcmp(&(scan->public_ip), &(hdr->public_ip), sizeof(struct peer_addr)))
+        {
+            if (0 == hdr->sent_by_supernode)
+            {
+                traceEvent(TRACE_NORMAL, "Peer changed public socket, Was %s:%hu",
+                    intoa(ntohl(hdr->public_ip.addr_type.v4_addr), ip_buf, sizeof(ip_buf)),
+                    ntohs(hdr->public_ip.port));
+                list_removeAt(eee->known_peers, idx);
+                free(scan);
 
-            try_send_register(eee, hdr);
+                try_send_register(eee, hdr);
+            }
+            else
+            {
+                /* Don't worry about what the supernode reports, it could be seeing a different socket. */
+            }
         }
         else
         {
-            /* Don't worry about what the supernode reports, it could be seeing a different socket. */
+            /* Found and unchanged. */
+            scan->last_seen = when;
         }
-    }
-    else
-    {
-        /* Found and unchanged. */
-        scan->last_seen = when;
+        releaseOne(eee->mt_queue->lock4UpdatePeer);
+        traceEvent(TRACE_NORMAL, "update_peer_address.unlock.1.2£º");
     }
 }
 
