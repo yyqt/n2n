@@ -359,7 +359,7 @@ static void send_deregister(n2n_edge_t* eee,
 static void update_peer_address(n2n_edge_t * eee,
                                 const struct n2n_packet_header * hdr,
                                 time_t when);
-void trace_registrations( struct peer_info * scan );
+void trace_registrations(list_t list );
 int is_ip6_discovery( const void * buf, size_t bufsize );
 void check_peer( n2n_edge_t * eee,
                  const struct n2n_packet_header * hdr );
