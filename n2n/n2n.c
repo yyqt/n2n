@@ -854,14 +854,16 @@ size_t purge_expired_registrations2(void* _queue, list_t peer_list, list_t peer_
 
     if ((now - last_purge) < PURGE_REGISTRATION_FREQUENCY) return 0;
 
-    traceEvent(TRACE_INFO, "Purging old registrations");
-    traceEvent(TRACE_NORMAL, "purge_expired_registrations2.lock.1.0£º");
+    traceEvent(TRACE_INFO, "purge_expired_registrations2.lock.1.0£º");
     if (lockOne(&queue->lock4UpdatePeer) == 0) {
-        traceEvent(TRACE_NORMAL, "purge_expired_registrations2.lock.1.1£º");
+        traceEvent(TRACE_INFO, "purge_expired_registrations2.lock.1.1£º");
         num_reg = purge_peer_list(peer_list, now - REGISTRATION_TIMEOUT);
         num_reg += purge_peer_list(peer_list2, now - REGISTRATION_TIMEOUT);
         releaseOne(&queue->lock4UpdatePeer);
-        traceEvent(TRACE_NORMAL, "purge_expired_registrations2.lock.1.2£º");
+        traceEvent(TRACE_INFO, "purge_expired_registrations2.lock.1.2£º");
+    }
+    else {
+        traceEvent(TRACE_NORMAL, "purge_expired_registrations2.lock.1.3£º");
     }
     last_purge = now;
     traceEvent(TRACE_INFO, "Remove %ld registrations", num_reg);
