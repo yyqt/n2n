@@ -606,7 +606,7 @@ static void update_peer_address(n2n_edge_t* eee,
         /* Not to be registered. */
         return;
     }
-    if (lockOne(eee->mt_queue->lock4UpdatePeer) == 0) {
+    if (lockOne(&eee->mt_queue->lock4UpdatePeer) == 0) {
         traceEvent(TRACE_NORMAL, "update_peer_address.lock.1.1£º");
         int idx = list_indexOf(eee->known_peers, hdr->dst_mac - COMMUNITY_LEN);
         if (idx < 0) {
@@ -643,7 +643,7 @@ static void update_peer_address(n2n_edge_t* eee,
             /* Found and unchanged. */
             scan->last_seen = when;
         }
-        releaseOne(eee->mt_queue->lock4UpdatePeer);
+        releaseOne(&eee->mt_queue->lock4UpdatePeer);
         traceEvent(TRACE_NORMAL, "update_peer_address.unlock.1.2£º");
     }
 }

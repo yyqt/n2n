@@ -856,11 +856,11 @@ size_t purge_expired_registrations2(void* _queue, list_t peer_list, list_t peer_
 
     traceEvent(TRACE_INFO, "Purging old registrations");
     traceEvent(TRACE_NORMAL, "purge_expired_registrations2.lock.1.0£º");
-    if (lockOne(queue->lock4UpdatePeer) == 0) {
+    if (lockOne(&queue->lock4UpdatePeer) == 0) {
         traceEvent(TRACE_NORMAL, "purge_expired_registrations2.lock.1.1£º");
         num_reg = purge_peer_list(peer_list, now - REGISTRATION_TIMEOUT);
         num_reg += purge_peer_list(peer_list2, now - REGISTRATION_TIMEOUT);
-        releaseOne(queue->lock4UpdatePeer);
+        releaseOne(&queue->lock4UpdatePeer);
         traceEvent(TRACE_NORMAL, "purge_expired_registrations2.lock.1.2£º");
     }
     last_purge = now;
