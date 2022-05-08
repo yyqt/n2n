@@ -542,7 +542,7 @@ int main(int argc, char* argv[]) {
       }
     }
 
-    purge_expired_registrations( &known_peers );
+    purge_expired_registrations(known_peers );
   } /* while */
 
   closesocket(udp_sinfo.sock);
