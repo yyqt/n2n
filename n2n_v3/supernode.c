@@ -38,7 +38,7 @@ static void help() {
 
 static list_t known_peers = NULL;// peer_info* known_peers = NULL;
 static struct tx_stats supernode_stats = {0,0};
-static int peer_cp(struct peer_addr* cp1, struct peer_addr* cp2);
+static int peer_cp(void* cp1, void* cp2);
 
 /* *********************************************** */
 
@@ -66,13 +66,15 @@ static void send_register_ack( n2n_sock_info_t * sinfo,
     marshall_n2n_packet_header( pkt, &hdr );
     send_packet(sinfo, (char *)pkt, &len, destination_peer, N2N_COMPRESSION_ENABLED);
 }
-static int peer_cp(struct peer_info* cp1, struct peer_info* cp2) {
-    int c1 = strcmp(cp1->community_name, cp2->community_name);
+static int peer_cp(void* cp1, void* cp2) {
+    struct peer_info* pa1 = cp1;
+    struct peer_info* pa2 = cp2;
+    int c1 = strcmp(pa1->community_name, pa2->community_name);
     if (c1 != 0) {
         return c1;
     }
     else {
-        return memcmp(&cp1->mac_addr, &cp2->mac_addr, 6);
+        return memcmp(pa1->mac_addr, pa2->mac_addr, 6);
     }
 }
 
