@@ -387,7 +387,7 @@ void try_send_register(n2n_edge_t* eee,
     const struct n2n_packet_header* hdr)
 {
     ipstr_t ip_buf;
-
+    
     /* REVISIT: purge of pending_peers not yet done. */
     struct peer_info* scan = find_peer_by_mac(eee->pending_peers, hdr->src_mac);
     multiThreadQueue_t queue = eee->mt_queue;
@@ -405,6 +405,7 @@ void try_send_register(n2n_edge_t* eee,
                 scan->last_seen = time(NULL); /* Don't change this it marks the pending peer for removal. */
                 scan->regcount = 1;
                 peer_list_add(eee->pending_peers, scan);
+                macstr_t mac_buf;
                 traceEvent(TRACE_NORMAL, "=== new peer pending [mac=%s][private=%s][socket=%s:%hu]",
                     macaddr_str(scan->mac_addr, mac_buf, sizeof(mac_buf)),
                     intoa(ntohl(scan->private_ip.addr_type.v4_addr), ip_buf, sizeof(ip_buf)),
