@@ -406,9 +406,10 @@ void try_send_register(n2n_edge_t* eee,
                 scan->regcount = 1;
                 peer_list_add(eee->pending_peers, scan);
                 macstr_t mac_buf;
+                ipstr_t ip_buf2;
                 traceEvent(TRACE_NORMAL, "=== new peer pending [mac=%s][private=%s][socket=%s:%hu]",
                     macaddr_str(scan->mac_addr, mac_buf, sizeof(mac_buf)),
-                    intoa(ntohl(scan->private_ip.addr_type.v4_addr), ip_buf, sizeof(ip_buf)),
+                    intoa(ntohl(scan->private_ip.addr_type.v4_addr), ip_buf2, sizeof(ip_buf2)),
                     intoa(ntohl(scan->public_ip.addr_type.v4_addr), ip_buf, sizeof(ip_buf)),
                     ntohs(scan->public_ip.port));
 
@@ -545,10 +546,10 @@ void set_peer_operational(n2n_edge_t* eee, const struct n2n_packet_header* hdr)
         scan->public_ip = hdr->public_ip;
         list_add(eee->known_peers, scan);
         list_removeAt(eee->pending_peers, idx);
-
+        ipstr_t ip_buf2;
         traceEvent(TRACE_NORMAL, "=== new peer opt [mac=%s][private=%s][socket=%s:%hu]",
             macaddr_str(scan->mac_addr, mac_buf, sizeof(mac_buf)),
-            intoa(ntohl(scan->private_ip.addr_type.v4_addr), ip_buf, sizeof(ip_buf)),
+            intoa(ntohl(scan->private_ip.addr_type.v4_addr), ip_buf2, sizeof(ip_buf2)),
             intoa(ntohl(scan->public_ip.addr_type.v4_addr), ip_buf, sizeof(ip_buf)),
             ntohs(scan->public_ip.port));
 
@@ -632,11 +633,13 @@ static void update_peer_address(n2n_edge_t* eee,
         {
             traceEvent(TRACE_NORMAL, "update_peer_address.lock.1.1£º");
             if (lockOne(&eee->mt_queue->lock4UpdatePeer) == 0) {
+                ipstr_t ip_buf2;
                 traceEvent(TRACE_NORMAL, "Peer changed public socket, Was %s -> %s:%hu for MAC %02X:%02X:%02X:%02X:%02X:%02X",
-                    intoa(ntohl(hdr->private_ip.addr_type.v4_addr), ip_buf, sizeof(ip_buf)),
+                    intoa(ntohl(hdr->private_ip.addr_type.v4_addr), ip_buf2, sizeof(ip_buf)),
                     intoa(ntohl(hdr->public_ip.addr_type.v4_addr), ip_buf, sizeof(ip_buf)),
                     ntohs(hdr->public_ip.port), hdr->dst_mac[0] & 0xFF, hdr->dst_mac[1] & 0xFF, hdr->dst_mac[2] & 0xFF,
                     hdr->dst_mac[3] & 0xFF, hdr->dst_mac[4] & 0xFF, hdr->dst_mac[5] & 0xFF);
+
                 idx = list_indexOf(eee->known_peers, hdr->src_mac - COMMUNITY_LEN);
                 if (idx >= 0) {
                     list_removeAt(eee->known_peers, idx);
