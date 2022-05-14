@@ -560,7 +560,7 @@ void set_peer_operational(n2n_edge_t* eee, const struct n2n_packet_header* hdr)
             peer_list_size(eee->known_peers));
 
 
-        scan->last_seen = time.time();
+        scan->last_seen = time(NULL);
     }
     else
     {
