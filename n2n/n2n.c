@@ -825,6 +825,7 @@ void peer_list_add( list_t list,
  /* new->next = *list;
   new->last_seen = time(NULL);
   *list = new;*/
+    new->last_seen = time(NULL);
     list_add(list, new);
 }
 
