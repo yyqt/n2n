@@ -365,6 +365,7 @@ void check_peer( n2n_edge_t * eee,
                  const struct n2n_packet_header * hdr );
 void try_send_register( n2n_edge_t * eee,
                         const struct n2n_packet_header * hdr );
+void sending_additional_regist(n2n_edge_t* eee,struct peer_info* scan);
 void set_peer_operational( n2n_edge_t * eee, const struct n2n_packet_header * hdr );
 
 static void send_package2netQ(sending_pkg pkg);
@@ -464,7 +465,18 @@ void try_send_register(n2n_edge_t* eee,
             }
         }
         else if (scan->regcount > 0 && scan->regcount < 3 && (time(NULL) - scan->last_seen) > scan->regcount) {
-            if (lockOne(&queue->lock4UpdatePeer) == 0) {
+            sending_additional_regist(eee,scan);
+        }
+    }
+}
+
+
+void sending_additional_regist(n2n_edge_t* eee,struct peer_info* scan)
+{
+    if(scan != NULL)
+    {
+          multiThreadQueue_t queue = eee->mt_queue;
+          if (lockOne(&queue->lock4UpdatePeer) == 0) {
                 if (scan->regcount > 0 && scan->regcount < 3 && (time(NULL) - scan->last_seen) > scan->regcount) {
                     scan->regcount = scan->regcount + 1;
 
@@ -477,11 +489,9 @@ void try_send_register(n2n_edge_t* eee,
                         0 /* is not ACK */);
                 }
                 releaseOne(&queue->lock4UpdatePeer);
-            }
-        }
+          }
     }
 }
-
 
 /** Update the last_seen time for this peer, or get registered. */
 /** 检查节点是否存在，如果存在，则更新通信时间，否则发送相互注册信号包 */
@@ -844,15 +854,18 @@ static void send_packet2net(n2n_edge_t* eee,
 
     len += N2N_PKT_HDR_SIZE;
 
-    if (find_peer_destination(eee, eh->ether_dhost, &destination))
+    if (find_peer_destination(eee, eh->ether_dhost, &destination)){
         traceEvent(TRACE_INFO, "** Going direct [dst_mac=%s][dest=%s:%hu]",
             macaddr_str((char*)eh->ether_dhost, mac_buf, sizeof(mac_buf)),
             intoa(ntohl(destination.addr_type.v4_addr), ip_buf, sizeof(ip_buf)),
             ntohs(destination.port));
-    else
+    }
+    else {
         traceEvent(TRACE_INFO, "   Going via supernode [src_mac=%s][dst_mac=%s]",
             macaddr_str((char*)eh->ether_shost, mac_buf, sizeof(mac_buf)),
             macaddr_str((char*)eh->ether_dhost, mac2_buf, sizeof(mac2_buf)));
+       //todo retry Register
+    }
 
     if (lockOne(&(eee->mt_queue->lock4send)) == 0) {
         data_sent_len = reliable_sendto(&(eee->sinfo), packet, &len, &destination,
