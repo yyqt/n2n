@@ -440,12 +440,13 @@ void try_send_register(n2n_edge_t* eee,
         if (0 == hdr->sent_by_supernode)
         {
             traceEvent(TRACE_NORMAL, "try_send_register.lock.2.0£º");
-            if (lockOne(&(eee->mt_queue->lock4UpdatePeer)) == 0) {
+           if (lockOne(&queue->lock4UpdatePeer) == 0) {
                 traceEvent(TRACE_NORMAL, "try_send_register.lock.2.1£º");
                 if (0 == hdr->sent_by_supernode)
                 {
                     /* over-write supernode-based socket with direct socket. */
-                    scan->public_ip = hdr->public_ip;
+                    //TO CONFIRM
+                    //scan->public_ip = hdr->public_ip;
 
                     traceEvent(TRACE_NORMAL, "Sending additional REGISTER request to %s:%hu",
                         intoa(ntohl(scan->public_ip.addr_type.v4_addr), ip_buf, sizeof(ip_buf)),
@@ -456,14 +457,14 @@ void try_send_register(n2n_edge_t* eee,
                         &(scan->public_ip),
                         0 /* is not ACK */);
                 }
-                releaseOne(&(eee->mt_queue->lock4UpdatePeer));
+                releaseOne(&queue->lock4UpdatePeer);
             }
             else {
                 traceEvent(TRACE_NORMAL, "try_send_register.lock.2.2£º");
             }
         }
         else if (scan->regcount > 0 && scan->regcount < 3 && (time(NULL) - scan->last_seen) > scan->regcount) {
-            if (lockOne(&(eee->mt_queue->lock4UpdatePeer)) == 0) {
+            if (lockOne(&queue->lock4UpdatePeer) == 0) {
                 if (scan->regcount > 0 && scan->regcount < 3 && (time(NULL) - scan->last_seen) > scan->regcount) {
                     scan->regcount = scan->regcount + 1;
 
@@ -475,7 +476,7 @@ void try_send_register(n2n_edge_t* eee,
                         &(scan->public_ip),
                         0 /* is not ACK */);
                 }
-                releaseOne(&(eee->mt_queue->lock4UpdatePeer));
+                releaseOne(&queue->lock4UpdatePeer);
             }
         }
     }
