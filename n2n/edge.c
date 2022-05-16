@@ -471,25 +471,26 @@ void try_send_register(n2n_edge_t* eee,
 }
 
 
-void sending_additional_regist(n2n_edge_t* eee,struct peer_info* scan)
+void sending_additional_regist(n2n_edge_t* eee, struct peer_info* scan)
 {
-    if(scan != NULL)
+    ipstr_t ip_buf;
+    if (scan != NULL)
     {
-          multiThreadQueue_t queue = eee->mt_queue;
-          if (lockOne(&queue->lock4UpdatePeer) == 0) {
-                if (scan->regcount > 0 && scan->regcount < 3 && (time(NULL) - scan->last_seen) > scan->regcount) {
-                    scan->regcount = scan->regcount + 1;
+        multiThreadQueue_t queue = eee->mt_queue;
+        if (lockOne(&queue->lock4UpdatePeer) == 0) {
+            if (scan->regcount > 0 && scan->regcount < 3 && (time(NULL) - scan->last_seen) > scan->regcount) {
+                scan->regcount = scan->regcount + 1;
 
-                    traceEvent(TRACE_NORMAL, "Sending 2 REGISTER request to %s:%hu",
-                        intoa(ntohl(scan->public_ip.addr_type.v4_addr), ip_buf, sizeof(ip_buf)),
-                        ntohs(scan->public_ip.port));
+                traceEvent(TRACE_NORMAL, "Sending 2 REGISTER request to %s:%hu",
+                    intoa(ntohl(scan->public_ip.addr_type.v4_addr), ip_buf, sizeof(ip_buf)),
+                    ntohs(scan->public_ip.port));
 
-                    send_register(eee,
-                        &(scan->public_ip),
-                        0 /* is not ACK */);
-                }
-                releaseOne(&queue->lock4UpdatePeer);
-          }
+                send_register(eee,
+                    &(scan->public_ip),
+                    0 /* is not ACK */);
+            }
+            releaseOne(&queue->lock4UpdatePeer);
+        }
     }
 }
 
@@ -864,7 +865,10 @@ static void send_packet2net(n2n_edge_t* eee,
         traceEvent(TRACE_INFO, "   Going via supernode [src_mac=%s][dst_mac=%s]",
             macaddr_str((char*)eh->ether_shost, mac_buf, sizeof(mac_buf)),
             macaddr_str((char*)eh->ether_dhost, mac2_buf, sizeof(mac2_buf)));
-       //todo retry Register
+        struct peer_info* scan2 = list_find(eee->pending_peers, eh->ether_dhost - COMMUNITY_LEN);
+        if (scan2 != NULL && scan2->regcount > 0 && scan2->regcount < 3 && (time(NULL) - scan2->last_seen) > scan2->regcount) {
+            sending_additional_regist(eee, scan2);
+        }
     }
 
     if (lockOne(&(eee->mt_queue->lock4send)) == 0) {
