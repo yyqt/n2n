@@ -96,7 +96,7 @@ export STAGING_DIR=/data/n2n/openwrt-sdk-18.06.1-ramips-mt7620_gcc-7.3.0_musl.Li
 mkdir -p ./outs/$NAME
 cp ./Makefile ./Makefile_tmp
 make clean
-sed -i 's/CC=gcc/CC=\/data\/n2n\/openwrt-sdk-18.06.1-ramips-mt7620_gcc-7.3.0_musl.Linux-x86_64\/staging_dir\/toolchain-mipsel_24kc_gcc-7.3.0_musl\/bin\/mipsel-openwrt-linux-cpp/g' ./Makefile_tmp
+sed -i 's/CC=gcc/CC=\/data\/n2n\/openwrt-sdk-18.06.1-ramips-mt7620_gcc-7.3.0_musl.Linux-x86_64\/staging_dir\/toolchain-mipsel_24kc_gcc-7.3.0_musl\/bin\/mipsel-openwrt-linux-gcc/g' ./Makefile_tmp
 make -f ./Makefile_tmp
 cp ./edge ./outs/$NAME/edge
 cp ./supernode ./outs/$NAME/supernode
@@ -107,7 +107,28 @@ export STAGING_DIR=/data/n2n/openwrt-sdk-18.06.1-ar71xx-generic_gcc-7.3.0_musl.L
 mkdir -p ./outs/$NAME
 cp ./Makefile ./Makefile_tmp
 make clean
-sed -i 's/CC=gcc/CC=\/data\/n2n\/openwrt-sdk-18.06.1-ar71xx-generic_gcc-7.3.0_musl.Linux-x86_64\/staging_dir\/toolchain-mips_24kc_gcc-7.3.0_musl\/bin\/mips-openwrt-linux-cpp/g' ./Makefile_tmp
+sed -i 's/CC=gcc/CC=\/data\/n2n\/openwrt-sdk-18.06.1-ar71xx-generic_gcc-7.3.0_musl.Linux-x86_64\/staging_dir\/toolchain-mips_24kc_gcc-7.3.0_musl\/bin\/mips-openwrt-linux-gcc/g' ./Makefile_tmp
+make -f ./Makefile_tmp
+cp ./edge ./outs/$NAME/edge
+cp ./supernode ./outs/$NAME/supernode
+
+NAME=openwrt_22_x86_64
+export STAGING_DIR=/data/n2n/openwrt-toolchain-22.03.0-rc1-x86-64_gcc-11.2.0_musl.Linux-x86_64
+mkdir -p ./outs/$NAME
+cp ./Makefile ./Makefile_tmp
+make clean
+sed -i 's/CC=gcc/CC=\/data\/n2n\/\/data\/n2n\/openwrt-toolchain-22.03.0-rc1-x86-64_gcc-11.2.0_musl.Linux-x86_64\/toolchain-x86_64_gcc-11.2.0_musl\/bin\/x86_64-openwrt-linux-gcc/g' ./Makefile_tmp
+make -f ./Makefile_tmp
+cp ./edge ./outs/$NAME/edge
+cp ./supernode ./outs/$NAME/supernode
+
+
+NAME=openwrt_22_x86
+export STAGING_DIR=/data/n2n/openwrt-toolchain-22.03.0-rc1-x86-generic_gcc-11.2.0_musl.Linux-x86_64
+mkdir -p ./outs/$NAME
+cp ./Makefile ./Makefile_tmp
+make clean
+sed -i 's/CC=gcc/CC=\/data\/n2n\/openwrt-toolchain-22.03.0-rc1-x86-generic_gcc-11.2.0_musl.Linux-x86_64\/toolchain-i386_pentium4_gcc-11.2.0_musl\/bin\/i486-openwrt-linux-gcc/g' ./Makefile_tmp
 make -f ./Makefile_tmp
 cp ./edge ./outs/$NAME/edge
 cp ./supernode ./outs/$NAME/supernode
