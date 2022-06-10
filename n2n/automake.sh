@@ -133,4 +133,14 @@ make -f ./Makefile_tmp
 cp ./edge ./outs/$NAME/edge
 cp ./supernode ./outs/$NAME/supernode
 
+NAME=openwrt_21_x86
+export STAGING_DIR=/data/n2n/openwrt-sdk-21.02.3-x86-generic_gcc-8.4.0_musl.Linux-x86_64/staging_dir
+mkdir -p ./outs/$NAME
+cp ./Makefile ./Makefile_tmp
+make clean
+sed -i 's/CC=gcc/CC=\/data\/n2n\/openwrt-sdk-21.02.3-x86-generic_gcc-8.4.0_musl.Linux-x86_64\/staging_dir\/toolchain-i386_pentium4_gcc-8.4.0_musl\/bin\/i486-openwrt-linux-gcc/g' ./Makefile_tmp
+make -f ./Makefile_tmp
+cp ./edge ./outs/$NAME/edge
+cp ./supernode ./outs/$NAME/supernode
+
 
